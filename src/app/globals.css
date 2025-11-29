@@ -1,26 +1,140 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* ============================================ */
+    /* ZONA 1 — DORMIR (70%) - Descanso visual     */
+    /* ============================================ */
+
+    /* Fondos principales - blanco cálido */
+    --background: 30 33% 96%;  /* #F7F3EF */
+    --foreground: 0 0% 18%;    /* #2F2F2F - texto principal */
+
+    /* Cards y contenedores - crema suave */
+    --card: 44 67% 98%;        /* #FDF9F3 */
+    --card-foreground: 0 0% 18%;
+
+    --popover: 44 67% 98%;
+    --popover-foreground: 0 0% 18%;
+
+    /* Secundario - verde pastel muy suave */
+    --secondary: 88 45% 91%;   /* #E3F0D7 */
+    --secondary-foreground: 0 0% 18%;
+
+    /* Muted - gris ultra suave */
+    --muted: 0 0% 93%;         /* #ECECEC */
+    --muted-foreground: 0 0% 45%; /* #727272 */
+
+    /* Bordes y inputs */
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+
+    /* ============================================ */
+    /* ZONA 2 — CONTAR (20%) - Narrativo           */
+    /* ============================================ */
+
+    /* Ilustraciones y atmósfera visual */
+    --coral: 18 86% 80%;       /* #F5B99E - Atardecer suave */
+    --green-nature: 142 22% 66%; /* #99B9A0 - Naturaleza tranquila */
+    --blue-snow: 202 100% 87%; /* #BEE5FF - Frío/aire libre */
+    --yellow-light: 42 100% 84%; /* #FFE8B0 - Luz/brillo suave */
+    --gray-illustration: 0 0% 77%; /* #C4C4C4 - Contornos */
+
+    /* ============================================ */
+    /* ZONA 3 — HABLAR (10%) - Acción y energía    */
+    /* ============================================ */
+
+    /* Naranja principal - CTA y botones */
+    --primary: 19 100% 66%;    /* #FF8A54 - Naranja vibrante */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 15 77% 57%; /* #E76B3C - hover más oscuro */
+
+    /* Acento - naranja oscuro estados activos */
+    --accent: 15 77% 57%;      /* #E76B3C */
+    --accent-foreground: 0 0% 100%;
+
+    /* Verde validación - success/confirmación */
+    --green-success: 102 46% 59%; /* #6EBF4E */
+
+    /* Azul medio - información/navegación */
+    --blue-action: 208 100% 74%; /* #7FC4FF */
+
+    /* Rojo suave - advertencia/error leve */
+    --destructive: 6 50% 56%;  /* #CF6050 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Ring para focus states */
+    --ring: 19 100% 66%;
+
+    /* Otras utilidades */
+    --radius: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
+
+    /* Sombras MUY sutiles */
+    --shadow-soft: 0 1px 8px rgba(0, 0, 0, 0.03);
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+    /* Transitions suaves */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 19 100% 66%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 95%;
+
+    --accent: 15 77% 57%;
+    --accent-foreground: 0 0% 100%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --destructive: 6 50% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 19 100% 66%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar for horizontal carousel */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
 }
