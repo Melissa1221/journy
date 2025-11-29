@@ -1,13 +1,24 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Home, PlusCircle, User } from "lucide-react";
+import { Home, PlusCircle, LogOut } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
 
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Mis Viajes" },
@@ -16,6 +27,16 @@ const Header = () => {
 
   // Show back button on pages that are not dashboard or create-session
   const showBackButton = !pathname.startsWith("/dashboard") && !pathname.startsWith("/create-session");
+
+  const getUserInitials = () => {
+    if (!user) return "U";
+    const name = user.user_metadata?.full_name || user.email || "";
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name[0]?.toUpperCase() || "U";
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -48,6 +69,36 @@ const Header = () => {
               </Button>
             );
           })}
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {getUserInitials()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {user?.user_metadata?.full_name || "Usuario"}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
       </div>
     </header>
