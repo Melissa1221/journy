@@ -23,8 +23,10 @@ from room_manager import room_manager
 from graph import graph, get_initial_state, normalize_name, get_graph
 from services import get_storage, session_service, auth_service
 from services.auth_service import AuthUser
+from services.whatsapp_service import get_whatsapp_service, WhatsAppMessage
 from langchain_core.messages import SystemMessage
 from typing import List
+import re
 
 load_dotenv()
 
@@ -2254,6 +2256,314 @@ async def test_page():
     """
 
 
+# ============== WHATSAPP INTEGRATION ==============
+
+async def process_message_complete(
+    thread_id: str,
+    user_id: str,
+    content: str,
+    image_base64: Optional[str] = None,
+    image_type: str = "image/jpeg"
+) -> dict:
+    """
+    Process a message and return complete response (no streaming).
+
+    This is the core function shared between WebSocket and WhatsApp handlers.
+    Uses graph.ainvoke() instead of graph.astream() for synchronous response.
+
+    Args:
+        thread_id: Session/trip code (LangGraph thread_id)
+        user_id: Display name of the user
+        content: Message text
+        image_base64: Optional base64-encoded image
+        image_type: MIME type of image
+
+    Returns:
+        Dict with response text and structured data
+    """
+    agent_graph = await get_graph()
+    config = {"configurable": {"thread_id": thread_id}}
+
+    # Build message with user context
+    message_with_user = f"[{user_id}]: {content}"
+
+    if image_base64:
+        message_with_user += " [El usuario adjunto una imagen - analizala para extraer informacion del gasto/recibo]"
+
+    # Build session context
+    session_context = {
+        "current_user": user_id,
+        "trip_id": None,
+        "pending_uploads": []
+    }
+
+    # Try to get trip_id from session_code
+    try:
+        from services import get_db
+        trip_id = get_db().get_trip_id_from_session_code(thread_id)
+        session_context["trip_id"] = trip_id
+    except Exception as e:
+        print(f"[WhatsApp] Could not resolve trip_id: {e}")
+
+    # Upload image if present
+    if image_base64:
+        try:
+            storage = get_storage()
+            upload_result = await storage.upload(image_base64, thread_id)
+            if upload_result.success:
+                session_context["pending_uploads"].append({
+                    "url": upload_result.url,
+                    "path": upload_result.path
+                })
+        except Exception as e:
+            print(f"[WhatsApp] Image upload error: {e}")
+
+    # Build multimodal content
+    message_content = build_multimodal_content(message_with_user, image_base64, image_type)
+
+    # Invoke graph (no streaming)
+    print(f"[WhatsApp] Processing: {content[:50]}...")
+
+    try:
+        await agent_graph.ainvoke(
+            {
+                "messages": [{"role": "user", "content": message_content}],
+                "session_context": session_context
+            },
+            config=config
+        )
+
+        # Get final state
+        final_state = await agent_graph.aget_state(config)
+        messages = final_state.values.get("messages", [])
+
+        # Extract last AI response
+        response_text = ""
+        for msg in reversed(messages):
+            if hasattr(msg, 'type') and msg.type in ("ai", "AIMessageChunk") and hasattr(msg, 'content'):
+                raw = extract_text_content(msg.content)
+                response_text = filter_json_from_response(raw, strip=True)
+                if response_text:
+                    break
+
+        # Build structured data
+        balances = final_state.values.get("balances", {})
+        debts = calculate_debts(balances)
+
+        return {
+            "response": response_text or "Mensaje procesado.",
+            "expenses": final_state.values.get("expenses", []),
+            "payments": final_state.values.get("payments", []),
+            "balances": balances,
+            "participants": final_state.values.get("participants", []),
+            "debts": debts
+        }
+
+    except Exception as e:
+        print(f"[WhatsApp] Error processing message: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "response": f"Error procesando mensaje: {str(e)}",
+            "error": True
+        }
+
+
+@app.get("/api/whatsapp/webhook")
+async def whatsapp_verify(request: Request):
+    """
+    Twilio webhook verification endpoint.
+
+    Twilio doesn't use challenge verification like Meta, but we keep this
+    endpoint for health checks and manual testing.
+    """
+    return {"status": "ok", "message": "WhatsApp webhook ready"}
+
+
+@app.post("/api/whatsapp/webhook")
+async def whatsapp_webhook(request: Request):
+    """
+    Handle incoming WhatsApp messages from Twilio.
+
+    Flow:
+    1. Parse incoming message
+    2. Check if user has active trip
+    3. If not, check for "unirme CODIGO" command
+    4. Process message with agent
+    5. Send response via Twilio
+    """
+    whatsapp = get_whatsapp_service()
+
+    if not whatsapp.is_configured():
+        print("[WhatsApp] Service not configured")
+        return {"error": "WhatsApp not configured"}
+
+    # Parse form data from Twilio
+    form_data = await request.form()
+    form_dict = dict(form_data)
+
+    print(f"[WhatsApp] Incoming: {form_dict}")
+
+    # Parse message
+    msg = whatsapp.parse_webhook(form_dict)
+    print(f"[WhatsApp] From: {msg.phone_number}, Body: {msg.body}, Media: {msg.num_media}")
+
+    # Get or create user
+    user = whatsapp.get_user(msg.phone_number)
+
+    # Check for commands
+    body_lower = msg.body.lower().strip()
+
+    # Command: unirme ABC123
+    join_match = re.match(r'^unirme\s+([a-zA-Z0-9]+)$', body_lower)
+    if join_match:
+        session_code = join_match.group(1).upper()
+        try:
+            trip = await session_service.get_trip_by_code(session_code)
+            if trip:
+                user = whatsapp.create_or_update_user(
+                    phone_number=msg.phone_number,
+                    display_name=msg.display_name,
+                    trip_id=trip.get("id"),
+                    session_code=session_code
+                )
+                await whatsapp.send_message(
+                    msg.from_number,
+                    f"Te has unido al viaje '{trip.get('name')}'! Ahora puedes registrar gastos. Por ejemplo: 'Pague 50 por el taxi'"
+                )
+                return {"status": "joined", "trip": trip.get("name")}
+            else:
+                await whatsapp.send_message(
+                    msg.from_number,
+                    f"No encontre ningun viaje con el codigo '{session_code}'. Verifica el codigo e intenta de nuevo."
+                )
+                return {"status": "not_found"}
+        except Exception as e:
+            print(f"[WhatsApp] Error joining trip: {e}")
+            await whatsapp.send_message(
+                msg.from_number,
+                "Hubo un error al unirte al viaje. Intenta de nuevo."
+            )
+            return {"error": str(e)}
+
+    # Command: mis viajes
+    if body_lower in ["mis viajes", "viajes", "trips"]:
+        if user and user.active_session_code:
+            await whatsapp.send_message(
+                msg.from_number,
+                f"Tu viaje activo es: {user.active_session_code}\n\nPara cambiar de viaje, escribe: unirme CODIGO"
+            )
+        else:
+            await whatsapp.send_message(
+                msg.from_number,
+                "No tienes ningun viaje activo.\n\nPara unirte a un viaje, escribe: unirme CODIGO"
+            )
+        return {"status": "trips_listed"}
+
+    # Command: ayuda
+    if body_lower in ["ayuda", "help", "?"]:
+        await whatsapp.send_message(
+            msg.from_number,
+            "Soy Journi! Te ayudo a llevar las cuentas del viaje.\n\n"
+            "Comandos:\n"
+            "- unirme ABC123 - Unirte a un viaje\n"
+            "- mis viajes - Ver tu viaje activo\n"
+            "- balance - Ver quien debe a quien\n\n"
+            "Para registrar gastos, simplemente dime:\n"
+            "- 'Pague 50 por el taxi'\n"
+            "- 'El almuerzo costo 120, pago Juan'\n"
+            "- Envia una foto de un recibo!"
+        )
+        return {"status": "help_sent"}
+
+    # Check if user has active trip
+    if not user or not user.active_session_code:
+        await whatsapp.send_message(
+            msg.from_number,
+            "Hola! Para empezar, unete a un viaje con:\n\nunirme CODIGO\n\n(El codigo te lo da quien creo el viaje).\n\n 🔗 https://journy-ten.vercel.app/"
+        )
+        return {"status": "no_trip"}
+
+    # Process with agent
+    thread_id = user.active_session_code
+    user_name = user.display_name
+
+    # Handle media (images and audio)
+    image_base64 = None
+    image_type = "image/jpeg"
+    message_content = msg.body
+
+    if msg.num_media > 0 and msg.media_urls and msg.media_types:
+        media_url = msg.media_urls[0]
+        media_type = msg.media_types[0]
+
+        try:
+            if whatsapp.is_audio_type(media_type):
+                # Audio: transcribe with Whisper
+                print(f"[WhatsApp] Transcribing audio: {media_type}")
+                transcribed_text = await whatsapp.transcribe_audio(media_url)
+                print(f"[WhatsApp] Transcribed: {transcribed_text[:100]}...")
+                # Append transcription to message content
+                if message_content:
+                    message_content = f"{message_content}\n\n[Audio transcrito]: {transcribed_text}"
+                else:
+                    message_content = transcribed_text
+
+            elif whatsapp.is_image_type(media_type):
+                # Image: download for vision API
+                image_base64, image_type = await whatsapp.download_media_as_base64(media_url)
+                print(f"[WhatsApp] Downloaded image: {len(image_base64)} bytes, type: {image_type}")
+                if not message_content:
+                    message_content = "(imagen adjunta)"
+
+            else:
+                # Unsupported media type
+                print(f"[WhatsApp] Unsupported media type: {media_type}")
+                if not message_content:
+                    message_content = f"(archivo {media_type} - no soportado)"
+
+        except Exception as e:
+            print(f"[WhatsApp] Failed to process media: {e}")
+            if not message_content:
+                message_content = "(error procesando archivo adjunto)"
+
+    # Ensure we have some content
+    if not message_content:
+        message_content = "(mensaje vacío)"
+
+    # Process message
+    result = await process_message_complete(
+        thread_id=thread_id,
+        user_id=user_name,
+        content=message_content,
+        image_base64=image_base64,
+        image_type=image_type
+    )
+
+    # Send response
+    response_text = result.get("response", "Mensaje procesado.")
+
+    # Truncate if too long for WhatsApp (1600 char limit)
+    if len(response_text) > 1500:
+        response_text = response_text[:1500] + "..."
+
+    await whatsapp.send_message(msg.from_number, response_text)
+
+    # Also broadcast to web users if any are connected
+    try:
+        await room_manager.broadcast(thread_id, {
+            "type": "whatsapp_message",
+            "user_id": user_name,
+            "content": msg.body,
+            "response": response_text,
+            "source": "whatsapp"
+        })
+    except Exception as e:
+        print(f"[WhatsApp] Could not broadcast to web: {e}")
+
+    return {"status": "processed", "response_length": len(response_text)}
+
+
 # ============== MAIN ==============
 
 if __name__ == "__main__":
@@ -2263,5 +2573,6 @@ if __name__ == "__main__":
     print("Test page: http://localhost:8000/test")
     print("WebSocket: ws://localhost:8000/ws/{thread_id}/{user_id}")
     print("HTTP Chat: POST http://localhost:8000/api/chat")
+    print("WhatsApp: POST http://localhost:8000/api/whatsapp/webhook")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
