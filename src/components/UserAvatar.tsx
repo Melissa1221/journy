@@ -13,19 +13,21 @@ function getAvatarColor(name: string): string {
 
 interface UserAvatarProps {
   name: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   showOnlineIndicator?: boolean;
   isOnline?: boolean;
   className?: string;
 }
 
 const sizeClasses = {
+  xs: "h-6 w-6",
   sm: "h-8 w-8",
   md: "h-10 w-10",
   lg: "h-12 w-12",
 };
 
 const textSizeClasses = {
+  xs: "text-[10px]",
   sm: "text-xs",
   md: "text-sm",
   lg: "text-base",

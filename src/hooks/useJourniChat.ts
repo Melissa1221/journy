@@ -137,6 +137,7 @@ export function useJourniChat({
   const [isTyping, setIsTyping] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
+  const thinkingStepsRef = useRef<ThinkingStep[]>([]);
   const [sessionState, setSessionState] = useState<SessionState>({
     expenses: [],
     payments: [],
@@ -239,6 +240,7 @@ export function useJourniChat({
         setMessages((prev) => [...prev, newMessage]);
         // Clear thinking steps for new conversation turn
         setThinkingSteps([]);
+        thinkingStepsRef.current = [];
         break;
       }
 
@@ -252,21 +254,22 @@ export function useJourniChat({
         };
 
         if (step.step === "tool_call") {
-          setThinkingSteps((prev) => [...prev, step]);
+          const newSteps = [...thinkingStepsRef.current, step];
+          thinkingStepsRef.current = newSteps;
+          setThinkingSteps(newSteps);
         } else if (step.step === "tool_result") {
           // Update the last tool call step to complete
-          setThinkingSteps((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0) {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                result: step.result,
-                status: "complete",
-              };
-            }
-            return updated;
-          });
+          const updated = [...thinkingStepsRef.current];
+          const lastIdx = updated.length - 1;
+          if (lastIdx >= 0) {
+            updated[lastIdx] = {
+              ...updated[lastIdx],
+              result: step.result,
+              status: "complete",
+            };
+          }
+          thinkingStepsRef.current = updated;
+          setThinkingSteps(updated);
         }
         break;
       }
@@ -278,16 +281,18 @@ export function useJourniChat({
 
       case "bot_complete": {
         const content = data.content as string;
+        // Use ref to get current thinking steps (avoids stale closure issue)
         const botMessage: ChatMessage = {
           id: `bot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
           type: "bot",
           content,
           timestamp,
-          thinkingSteps: [...thinkingSteps],
+          thinkingSteps: [...thinkingStepsRef.current],
         };
         setMessages((prev) => [...prev, botMessage]);
         setStreamingContent("");
         setIsTyping(false);
+        thinkingStepsRef.current = [];
         setThinkingSteps([]);
 
         // Update session state
@@ -349,7 +354,7 @@ export function useJourniChat({
       default:
         console.log("Unknown message type:", type, data);
     }
-  }, [thinkingSteps]);
+  }, []);
 
   const sendMessage = useCallback((content: string, image?: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {

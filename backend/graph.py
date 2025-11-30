@@ -137,7 +137,8 @@ def register_expense(
     description: str,
     paid_by: str,
     currency: str = "PEN",
-    split_among: Optional[list[str]] = None
+    split_among: Optional[list[str]] = None,
+    split_amounts: Optional[dict[str, float]] = None
 ) -> str:
     """
     Register a new expense in the session.
@@ -146,12 +147,26 @@ def register_expense(
         amount: The amount paid
         description: What the expense was for (e.g., "taxi", "almuerzo")
         paid_by: Name of the person who paid
-        currency: Currency code (PEN, CLP, USD, EUR, etc.). Detect from context - use CLP for Chile, PEN for Peru.
-        split_among: List of names to split among (None = split among all)
+        currency: Currency code (PEN, CLP, USD, EUR, etc.)
+        split_among: List of names to split EQUALLY (None = all participants)
+        split_amounts: Dict of {name: amount} for UNEQUAL splits. Must sum to total amount.
+                      Use this when people consumed different amounts.
+                      Example: {"meli": 20, "andre": 30} for a 50 total expense.
+
+    IMPORTANT: Use split_among OR split_amounts, NOT both.
+    - split_among: Equal split → {"meli", "andre"} each pays 25 of 50
+    - split_amounts: Unequal split → {"meli": 20, "andre": 30}
 
     Returns:
         JSON string with the action and expense data
     """
+    # Validate: can't use both split methods
+    if split_among and split_amounts:
+        return json.dumps({
+            "action": "error",
+            "message": "Use split_among OR split_amounts, not both"
+        })
+
     return json.dumps({
         "action": "register_expense",
         "data": {
@@ -159,7 +174,8 @@ def register_expense(
             "description": description,
             "paid_by": paid_by,
             "currency": currency.upper(),
-            "split_among": split_among
+            "split_among": split_among,
+            "split_amounts": split_amounts
         }
     })
 
@@ -551,27 +567,28 @@ class LLMWithFallback:
         self.openrouter_key = os.getenv("OPENROUTER_API_KEY")
         self.current_model_index = 0
 
-    def _create_llm(self, config: dict):
+    def _create_llm(self, config: dict, with_tools: bool = True):
         """Create LLM instance for given config."""
         if config["provider"] == "openai":
-            return ChatOpenAI(
+            llm = ChatOpenAI(
                 model=config["model"],
                 api_key=self.openai_key,
-            ).bind_tools(TOOLS)
+            )
         else:  # openrouter
-            return ChatOpenAI(
+            llm = ChatOpenAI(
                 model=config["model"],
                 api_key=self.openrouter_key,
                 base_url="https://openrouter.ai/api/v1",
-            ).bind_tools(TOOLS)
+            )
+        return llm.bind_tools(TOOLS) if with_tools else llm
 
-    async def ainvoke(self, messages):
+    async def ainvoke(self, messages, with_tools: bool = True):
         """Invoke LLM with automatic fallback on failure."""
         last_error = None
 
         for i, config in enumerate(MODEL_CONFIG):
             try:
-                llm = self._create_llm(config)
+                llm = self._create_llm(config, with_tools=with_tools)
                 response = await llm.ainvoke(messages)
 
                 # Success - log if we switched models
@@ -649,12 +666,15 @@ Los gastos se registran con su moneda real. NO conviertas entre monedas.
 - Las deudas se calculan SEPARADAMENTE por cada moneda, sin mezclar
 
 HERRAMIENTAS:
-- register_expense: Para registrar un gasto nuevo (incluye parámetro currency: CLP, PEN, USD, etc.)
-- edit_expense: Para modificar un gasto existente (split, monto, descripción, pagador). Usa expense_id="last" para el último.
-- delete_expense: Para eliminar un gasto. Usa expense_id="last" para el último.
-- register_payment: Para registrar pago directo entre personas (ej: "ya le pagué a X") - incluye currency
-- get_balance: Para consultar balance de una persona o todos (muestra saldos por moneda)
-- get_debts: Para ver quién debe a quién (separado por moneda)
+- register_expense: Registrar gasto. Parámetros importantes:
+  * split_among: Lista de nombres para división IGUAL (ej: ["meli", "andre"] → cada uno paga 50%)
+  * split_amounts: Dict para división DESIGUAL (ej: {"meli": 20, "andre": 30} → montos específicos)
+  * IMPORTANTE: Usa split_among O split_amounts, NUNCA ambos
+- edit_expense: Modificar gasto existente. Usa expense_id="last" para el último.
+- delete_expense: Eliminar gasto. Usa expense_id="last" para el último.
+- register_payment: Pago directo entre personas (ej: "ya le pagué a X")
+- get_balance: Consultar balance
+- get_debts: Ver quién debe a quién
 
 IMÁGENES - DOS TIPOS:
 
@@ -703,8 +723,12 @@ Ejemplos:
 - "[meli]: dividelo con andre" → edit_expense("last", split_among=["meli", "andre"])
 - "[andre]: borra el último gasto" → delete_expense("last")
 - "[andre]: ya le di 25 a meli" → register_payment("andre", "meli", 25, currency="PEN")
-- "[pedro]: ¿cuánto debo?" → get_balance("pedro") (respuesta muestra cada moneda por separado)
-- "[meli]: [imagen de recibo]" → analiza la imagen, extrae monto/descripción/moneda, register_expense
+- "[pedro]: ¿cuánto debo?" → get_balance("pedro")
+
+DIVISIÓN DESIGUAL (split_amounts):
+- "[meli]: andre pagó 50 de comida, mi plato fue 20" → register_expense(50, "comida", "andre", split_amounts={"meli": 20, "andre": 30})
+- "[pedro]: pagué 100 del almuerzo, yo comí 40, juan 35, maría 25" → register_expense(100, "almuerzo", "pedro", split_amounts={"pedro": 40, "juan": 35, "maría": 25})
+- Cuando alguien dice "mi parte fue X" o "yo consumí X" → usa split_amounts
 """
 
 
@@ -768,49 +792,68 @@ async def execute_tools(state: JourniState) -> dict:
             # Normalize names
             paid_by = normalize_name(data["paid_by"])
             currency = data.get("currency", "PEN").upper()
+            split_amounts = data.get("split_amounts")
 
-            # Use all participants if split_among not specified
-            split_list = data.get("split_among") or participants
-            if not split_list:
-                split_list = [paid_by]
+            # Handle split_amounts (unequal split) vs split_among (equal split)
+            if split_amounts:
+                # Unequal split: validate and use specific amounts
+                split_amounts = {normalize_name(k): v for k, v in split_amounts.items()}
+                total_split = sum(split_amounts.values())
+
+                # Validate amounts sum to total (with small tolerance for float precision)
+                if abs(total_split - data["amount"]) > 0.01:
+                    result_content = f"Error: split_amounts suma {total_split:.2f} pero el gasto es {data['amount']:.2f}"
+                    tool_results.append(ToolMessage(content=result_content, tool_call_id=tool_id))
+                    continue
+
+                split_list = list(split_amounts.keys())
             else:
-                split_list = [normalize_name(p) for p in split_list]
+                # Equal split: use split_among or all participants
+                split_list = data.get("split_among") or participants
+                if not split_list:
+                    split_list = [paid_by]
+                else:
+                    split_list = [normalize_name(p) for p in split_list]
+                split_amounts = None
 
             # Ensure paid_by is in participants
             if paid_by not in participants:
                 participants.append(paid_by)
 
-            # Ensure all split_among are in participants
+            # Ensure all split people are in participants
             for person in split_list:
                 if person not in participants:
                     participants.append(person)
-
-            # Update data with normalized names
-            data["paid_by"] = paid_by
 
             expense = {
                 "id": expense_id,
                 "amount": data["amount"],
                 "currency": currency,
                 "description": data["description"],
-                "paid_by": data["paid_by"],
+                "paid_by": paid_by,
                 "split_among": split_list,
+                "split_amounts": split_amounts,  # Store for reference
                 "timestamp": ""
             }
             new_expenses.append(expense)
 
             # Update balances (per currency)
-            split_count = len(split_list)
-            per_person = data["amount"] / split_count
-
             # Payer gets credit in that currency
-            update_balance(new_balances, data["paid_by"], currency, data["amount"])
+            update_balance(new_balances, paid_by, currency, data["amount"])
 
             # Each person owes their share in that currency
-            for person in split_list:
-                update_balance(new_balances, person, currency, -per_person)
-
-            result_content = f"Gasto registrado: {data['amount']:.2f} {currency} por '{data['description']}', pagado por {data['paid_by']}, dividido entre {len(split_list)} personas"
+            if split_amounts:
+                # Unequal split: use specific amounts
+                for person, amount in split_amounts.items():
+                    update_balance(new_balances, person, currency, -amount)
+                split_desc = ", ".join([f"{p}: {a:.2f}" for p, a in split_amounts.items()])
+                result_content = f"Gasto registrado: {data['amount']:.2f} {currency} por '{data['description']}', pagado por {paid_by}. División: {split_desc}"
+            else:
+                # Equal split
+                per_person = data["amount"] / len(split_list)
+                for person in split_list:
+                    update_balance(new_balances, person, currency, -per_person)
+                result_content = f"Gasto registrado: {data['amount']:.2f} {currency} por '{data['description']}', pagado por {paid_by}, dividido entre {len(split_list)} personas"
 
         elif tool_name == "get_balance":
             person = tool_args.get("person")
@@ -1330,7 +1373,11 @@ async def execute_tools(state: JourniState) -> dict:
 
 @traceable(name="generate_response", run_type="llm", tags=["journi", "expense-tracking"])
 async def generate_response(state: JourniState) -> dict:
-    """Generate final response after tool execution."""
+    """Generate final response after tool execution.
+
+    Uses LLM WITHOUT tools bound to ensure it only generates text,
+    not additional tool calls that would not be executed.
+    """
     # Build context with tool results
     messages = []
     for msg in state["messages"]:
@@ -1340,7 +1387,8 @@ async def generate_response(state: JourniState) -> dict:
             if msg.get("role") == "user":
                 messages.append(HumanMessage(content=msg["content"]))
 
-    response = await llm_manager.ainvoke(messages)
+    # Use with_tools=False to prevent additional tool calls
+    response = await llm_manager.ainvoke(messages, with_tools=False)
     return {"messages": [response]}
 
 
