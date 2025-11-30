@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Share2, Settings, Plus, TrendingUp, MessageSquare, Wifi, WifiOff, Users, Wallet } from "lucide-react";
 import Header from "@/components/Header";
@@ -14,13 +13,7 @@ import { ChatConversation } from "@/components/chat/ChatConversation";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useJourniChat } from "@/hooks/useJourniChat";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Color palette for avatars
-const AVATAR_COLORS = ["#FF8750", "#6EBF4E", "#BEE5FF", "#F3E5F5", "#FFE3CC", "#B9E88A"];
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
+import { UserAvatar } from "@/components/UserAvatar";
 
 export default function Session() {
   const params = useParams();
@@ -266,14 +259,7 @@ export default function Session() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback
-                                style={{ backgroundColor: getAvatarColor(expense.paid_by) }}
-                                className="text-white font-semibold"
-                              >
-                                {expense.paid_by[0]?.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                            <UserAvatar name={expense.paid_by} size="md" />
                             <div>
                               <p className="font-semibold text-foreground">{expense.description}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">
@@ -312,14 +298,7 @@ export default function Session() {
                     <div key={idx} className="bg-background rounded-2xl p-4 border border-border hover:shadow-card hover:border-primary/20 transition-all duration-300">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback
-                              style={{ backgroundColor: getAvatarColor(data.person) }}
-                              className="text-white font-bold"
-                            >
-                              {data.person[0]?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <UserAvatar name={data.person} size="md" />
                           <div>
                             <p className="font-semibold text-foreground">{data.person}</p>
                             <p className="text-xs text-muted-foreground">{data.percentage}% del total</p>
@@ -363,24 +342,10 @@ export default function Session() {
                       className="bg-background/80 backdrop-blur rounded-2xl p-4 flex items-center justify-between border border-border/50 shadow-soft"
                     >
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback
-                            style={{ backgroundColor: getAvatarColor(debt.from) }}
-                            className="text-white text-sm font-semibold"
-                          >
-                            {debt.from[0]?.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar name={debt.from} size="sm" />
                         <span className="text-sm font-semibold">{debt.from}</span>
                         <span className="text-muted-foreground font-bold">→</span>
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback
-                            style={{ backgroundColor: getAvatarColor(debt.to) }}
-                            className="text-white text-sm font-semibold"
-                          >
-                            {debt.to[0]?.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar name={debt.to} size="sm" />
                         <span className="text-sm font-semibold">{debt.to}</span>
                       </div>
                       <Badge className="bg-accent text-accent-foreground rounded-full px-4 py-1.5 shadow-md font-bold">
@@ -451,21 +416,14 @@ function ParticipantAvatars({
         {shown.map((name) => {
           const isOnline = onlineUsers.includes(name);
           return (
-            <div key={name} className="relative">
-              <Avatar className="h-8 w-8 border-2 border-background">
-                <AvatarFallback
-                  style={{
-                    backgroundColor: getAvatarColor(name),
-                    opacity: isOnline ? 1 : 0.5,
-                  }}
-                  className="text-white text-xs font-semibold"
-                >
-                  {name[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              {isOnline && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-              )}
+            <div key={name} className={isOnline ? "" : "opacity-50"}>
+              <UserAvatar
+                name={name}
+                size="sm"
+                showOnlineIndicator
+                isOnline={isOnline}
+                className="border-2 border-background"
+              />
             </div>
           );
         })}

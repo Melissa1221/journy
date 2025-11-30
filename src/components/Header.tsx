@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const Header = () => {
   const router = useRouter();
@@ -28,15 +28,7 @@ const Header = () => {
   // Show back button on pages that are not dashboard or create-session
   const showBackButton = !pathname.startsWith("/dashboard") && !pathname.startsWith("/create-session");
 
-  const getUserInitials = () => {
-    if (!user) return "U";
-    const name = user.user_metadata?.full_name || user.email || "";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name[0]?.toUpperCase() || "U";
-  };
+  const userName = user?.user_metadata?.full_name || user?.email || "Usuario";
 
   return (
     <header className="fixed top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -74,18 +66,14 @@ const Header = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    {getUserInitials()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={userName} size="sm" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {user?.user_metadata?.full_name || "Usuario"}
+                    {userName}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email}
