@@ -801,7 +801,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-muted-foreground border-t border-border">
-        <p className="text-sm">© 2024 TripSplit — Hecha por viajeros, para viajeros.</p>
+        <p className="text-sm">© 2024 Journi — Hecha por viajeros, para viajeros.</p>
       </footer>
     </main>
   );

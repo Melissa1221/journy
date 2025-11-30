@@ -39,7 +39,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="fixed top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showBackButton && <BackButton />}
@@ -47,7 +47,7 @@ const Header = () => {
             onClick={() => router.push("/dashboard")}
             className="text-2xl font-bold bg-gradient-to-r from-primary via-accent-foreground to-blue-deep bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
-            TravelMemory
+            Journi
           </button>
         </div>
 

@@ -108,7 +108,7 @@ export default function Auth() {
               </p>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                 <li>Abre tu bandeja de entrada</li>
-                <li>Busca el email de TravelMemory</li>
+                <li>Busca el email de Journi</li>
                 <li>Haz click en el enlace de verificación</li>
                 <li>¡Listo! Podrás iniciar sesión</li>
               </ol>

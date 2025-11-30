@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Send, Share2, Settings, Plus, TrendingUp, MessageSquare } from "lucide-react";
+import { Send, Share2, Settings, Plus, TrendingUp, MessageSquare, Wallet, User } from "lucide-react";
 import { useState } from "react";
 import Header from "@/components/Header";
 import ShareSessionDialog from "@/components/ShareSessionDialog";
@@ -39,6 +39,22 @@ export default function Session() {
     { id: 3, person: "María", message: "El taxi costó 30", time: "11:45", isBot: false },
     { id: 4, person: "Bot", message: "✅ Registrado: María pagó S/30 por taxi.", time: "11:45", isBot: true },
   ];
+
+  // Calculate spending per person
+  const spendingPerPerson = expenses.reduce((acc, expense) => {
+    if (!acc[expense.person]) {
+      acc[expense.person] = 0;
+    }
+    acc[expense.person] += expense.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const spendingData = Object.entries(spendingPerPerson).map(([person, amount]) => ({
+    person,
+    amount,
+    percentage: (amount / totalSpent * 100).toFixed(1)
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -168,6 +184,49 @@ export default function Session() {
                   ))}
                 </div>
               </ScrollArea>
+            </Card>
+
+            {/* Individual Spending Tracker */}
+            <Card className="rounded-3xl shadow-card p-6 border-2 border-border/50">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Wallet className="h-6 w-6 text-primary" />
+                  Gasto por Persona
+                </h2>
+                <Badge variant="outline" className="text-sm font-semibold">
+                  Total: S/ {totalSpent}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
+                {spendingData.map((data, idx) => (
+                  <div key={idx} className="bg-background rounded-2xl p-4 border border-border hover:shadow-card hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                            {data.person[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-foreground">{data.person}</p>
+                          <p className="text-xs text-muted-foreground">{data.percentage}% del total</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-2xl text-primary">S/ {data.amount}</p>
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-primary to-accent h-full rounded-full transition-all duration-500"
+                        style={{ width: `${data.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
 
             {/* Summary */}
