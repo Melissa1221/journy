@@ -41,26 +41,26 @@ export default function TripView() {
   const sections = [
     {
       id: "expenses" as TripSection,
-      name: "Tus gastos",
+      name: "Gastos",
       icon: Wallet,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      color: "text-coral",
+      bgColor: "bg-coral/20",
       description: "Control financiero",
     },
     {
       id: "map" as TripSection,
-      name: "Mapa de recuerdos",
+      name: "Mapa",
       icon: Map,
-      color: "text-accent-foreground",
-      bgColor: "bg-accent/10",
+      color: "text-blueSnow",
+      bgColor: "bg-blueSnow/20",
       description: "Línea de tiempo visual",
     },
     {
       id: "moments" as TripSection,
-      name: "Mejores momentos",
+      name: "Momentos",
       icon: Camera,
-      color: "text-blue-deep",
-      bgColor: "bg-blue-light/30",
+      color: "text-greenNature",
+      bgColor: "bg-greenNature/20",
       description: "Fotos del viaje",
     },
   ];
@@ -69,46 +69,58 @@ export default function TripView() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      {/* Hero Header with Cover */}
-      <div className="relative h-64 overflow-hidden">
-        <img src={trip.image} alt={trip.name} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-background" />
+      {/* Contenedor principal con padding top por el header fijo */}
+      <div className="pt-16">
 
-        {/* Header Content */}
-        <div className="absolute inset-0 flex flex-col justify-between p-6">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/dashboard")}
-              className="bg-card/80 backdrop-blur hover:bg-card"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" className="bg-card/80 backdrop-blur hover:bg-card">
-                <Share2 className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="bg-card/80 backdrop-blur hover:bg-card">
-                <Settings className="h-5 w-5" />
-              </Button>
+        {/* Hero con imagen de portada */}
+        <section className="relative px-4 container mx-auto max-w-7xl mb-6">
+          <Card className="overflow-hidden rounded-[32px] border-none shadow-hover">
+            <div className="relative h-64 md:h-80">
+              {/* Imagen de portada */}
+              <img
+                src={trip.image}
+                alt={trip.name}
+                className="w-full h-full object-cover"
+              />
+
+              {/* Gradiente para legibilidad del texto */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+              {/* Contenido sobre la imagen */}
+              <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-8">
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="flex items-center gap-2 text-sm text-white/90 hover:text-white transition-colors self-start"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Volver al dashboard</span>
+                </button>
+
+                <div className="flex items-end justify-between gap-4">
+                  <div className="text-white">
+                    <h1 className="text-4xl md:text-5xl font-black mb-2">{trip.name}</h1>
+                    <p className="text-xl font-semibold mb-1">{trip.location}</p>
+                    <p className="text-sm text-white/90">
+                      {trip.date} · {trip.days} días · {trip.participants} viajeros
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-2 border-white/30 shadow-soft bg-white/90 backdrop-blur hover:bg-white"
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Compartir
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          </Card>
+        </section>
 
-          <div className="text-white">
-            <h1 className="text-4xl font-bold drop-shadow-lg mb-2">{trip.name}</h1>
-            <p className="text-white/90 text-lg drop-shadow">{trip.location}</p>
-            <p className="text-white/80 text-sm mt-1 drop-shadow">
-              {trip.date} · {trip.days} días · {trip.participants} viajeros
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Section Navigation */}
-      <div className="border-b border-border/50 bg-card/50 backdrop-blur sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-3 gap-2 py-4">
+        {/* Navigation Pills - Minimalista y clara */}
+        <section className="px-4 container mx-auto max-w-7xl mb-8">
+          <div className="bg-secondary/30 rounded-[32px] p-2 inline-flex gap-2">
             {sections.map((section) => {
               const Icon = section.icon;
               const isActive = activeSection === section.id;
@@ -117,38 +129,31 @@ export default function TripView() {
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-300 ${isActive
-                      ? `${section.bgColor} scale-105 shadow-md`
-                      : "bg-background hover:bg-secondary/50"
-                    }`}
+                  className={`
+                    flex items-center gap-2.5 px-6 py-3 rounded-[28px] transition-all font-semibold text-sm
+                    ${isActive
+                      ? `bg-card shadow-soft text-foreground`
+                      : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+                    }
+                  `}
                 >
-                  <div
-                    className={`${isActive ? section.bgColor : "bg-secondary"
-                      } rounded-full p-3 transition-all`}
-                  >
-                    <Icon className={`h-6 w-6 ${isActive ? section.color : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="text-center">
-                    <p className={`font-semibold text-sm ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
-                      {section.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
-                  </div>
+                  <Icon className={`h-5 w-5 ${isActive ? section.color : ""}`} />
+                  <span>{section.name}</span>
                 </button>
               );
             })}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Section Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
-          {activeSection === "expenses" && <TripExpenses />}
-          {activeSection === "map" && <TripMemoryMap />}
-          {activeSection === "moments" && <TripMoments tripId={parseInt(id)} />}
-        </div>
-      </main>
+        {/* Section Content con transición suave */}
+        <main className="px-4 container mx-auto max-w-7xl pb-12">
+          <div className="animate-in fade-in duration-300">
+            {activeSection === "expenses" && <TripExpenses />}
+            {activeSection === "map" && <TripMemoryMap />}
+            {activeSection === "moments" && <TripMoments tripId={parseInt(id)} />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
