@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Share2, Settings, Plus, TrendingUp, MessageSquare, Wifi, WifiOff, Users, Wallet } from "lucide-react";
 import Header from "@/components/Header";
 import ShareSessionDialog from "@/components/ShareSessionDialog";
+import FinalizeSessionModal from "@/components/FinalizeSessionModal";
 import { ChatConversation } from "@/components/chat/ChatConversation";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useJourniChat } from "@/hooks/useJourniChat";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserAvatar } from "@/components/UserAvatar";
+import { toast } from "@/hooks/use-toast";
 
 export default function Session() {
   const params = useParams();
@@ -68,6 +70,8 @@ export default function Session() {
   })();
 
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [isFinalized, setIsFinalized] = useState(false);
 
   const {
     status,
@@ -114,6 +118,24 @@ export default function Session() {
 
   const handleSendMessage = (content: string, image?: string) => {
     sendMessage(content, image);
+  };
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+  const handleFinalize = async () => {
+    // For MVP, we use session code directly since we don't have trip_id
+    // The backend will need to lookup by session_code
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionCode}/summary`);
+    if (!response.ok) {
+      throw new Error("Failed to get summary");
+    }
+
+    // Mark as finalized (in real implementation, would call finalize endpoint)
+    setIsFinalized(true);
+    toast({
+      title: "Viaje finalizado",
+      description: "El resumen esta listo para compartir",
+    });
   };
 
   // Session info (will come from backend later)
@@ -356,10 +378,21 @@ export default function Session() {
                 </div>
               )}
 
-              {allDebts.length > 0 && (
-                <Button className="w-full mt-6 shadow-lg h-12 text-base font-semibold">
-                  Marcar como liquidado
+              {/* Solo el creador (usuario autenticado) puede finalizar */}
+              {!isFinalized && user && (
+                <Button
+                  className="w-full mt-6 shadow-lg h-12 text-base font-semibold"
+                  onClick={() => setShowFinalizeModal(true)}
+                >
+                  Finalizar Viaje
                 </Button>
+              )}
+              {isFinalized && (
+                <div className="text-center mt-6 py-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                  <p className="text-green-700 dark:text-green-300 font-medium">
+                    Viaje finalizado
+                  </p>
+                </div>
               )}
             </Card>
           </div>
@@ -371,6 +404,18 @@ export default function Session() {
         onOpenChange={setShowShareDialog}
         sessionName={sessionName}
         sessionCode={sessionCode}
+      />
+
+      <FinalizeSessionModal
+        open={showFinalizeModal}
+        onOpenChange={setShowFinalizeModal}
+        sessionName={sessionName}
+        sessionCode={sessionCode}
+        totalSpent={totalSpent}
+        expenseCount={sessionState.expenses.length}
+        participants={participants}
+        debts={allDebts}
+        onFinalize={handleFinalize}
       />
     </div>
   );

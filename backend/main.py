@@ -708,6 +708,128 @@ async def delete_trip(trip_id: int, request: Request):
     return {"status": "deleted", "trip_id": trip_id}
 
 
+@app.post("/api/trips/{trip_id}/finalize")
+async def finalize_trip(trip_id: int, request: Request):
+    """
+    Finalize a trip - marks it as completed and returns final summary.
+
+    Only the trip creator can finalize the trip.
+    Returns the final summary with total spent and all debts.
+    """
+    user = await require_auth_user(request)
+
+    trip = await session_service.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Only creator can finalize
+    if trip["creator_id"] != user.id:
+        raise HTTPException(status_code=403, detail="Only the trip creator can finalize")
+
+    if trip["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Trip already finalized")
+
+    # Get the session state from LangGraph
+    graph = await get_graph()
+    session_code = trip["session_code"]
+    config = {"configurable": {"thread_id": session_code}}
+
+    try:
+        state = await graph.aget_state(config)
+        expenses = state.values.get("expenses", [])
+        balances = state.values.get("balances", {})
+        participants = state.values.get("participants", [])
+        debts = calculate_debts(balances)
+    except Exception as e:
+        print(f"Error getting state for finalize: {e}")
+        expenses = []
+        balances = {}
+        participants = []
+        debts = {}
+
+    # Calculate totals
+    total_spent = sum(exp.get("amount", 0) for exp in expenses)
+
+    # Flatten debts for response
+    all_debts = []
+    for currency, debt_list in debts.items():
+        for debt in debt_list:
+            all_debts.append({
+                "from": debt["from"],
+                "to": debt["to"],
+                "amount": debt["amount"],
+                "currency": currency
+            })
+
+    # Update trip status to completed
+    await session_service.update_trip_status(trip_id, "completed")
+
+    return {
+        "status": "finalized",
+        "trip": {
+            "id": trip_id,
+            "name": trip["name"],
+            "start_date": trip.get("start_date"),
+            "end_date": trip.get("end_date"),
+            "location": trip.get("location"),
+        },
+        "summary": {
+            "total_spent": total_spent,
+            "expense_count": len(expenses),
+            "participant_count": len(participants),
+            "participants": participants,
+            "debts": all_debts,
+            "expenses": expenses,
+            "balances": balances
+        }
+    }
+
+
+@app.get("/api/sessions/{session_code}/summary")
+async def get_session_summary(session_code: str):
+    """
+    Get current session summary (without finalizing).
+    Used to display the finalize confirmation modal.
+    """
+    graph = await get_graph()
+    config = {"configurable": {"thread_id": session_code}}
+
+    try:
+        state = await graph.aget_state(config)
+        expenses = state.values.get("expenses", [])
+        balances = state.values.get("balances", {})
+        participants = state.values.get("participants", [])
+        debts = calculate_debts(balances)
+    except Exception:
+        expenses = []
+        balances = {}
+        participants = []
+        debts = {}
+
+    total_spent = sum(exp.get("amount", 0) for exp in expenses)
+
+    # Flatten debts
+    all_debts = []
+    for currency, debt_list in debts.items():
+        for debt in debt_list:
+            all_debts.append({
+                "from": debt["from"],
+                "to": debt["to"],
+                "amount": debt["amount"],
+                "currency": currency
+            })
+
+    return {
+        "session_code": session_code,
+        "total_spent": total_spent,
+        "expense_count": len(expenses),
+        "participant_count": len(participants),
+        "participants": participants,
+        "debts": all_debts,
+        "expenses": expenses
+    }
+
+
 # ============== AUDIO TRANSCRIPTION ==============
 
 @app.post("/api/transcribe")

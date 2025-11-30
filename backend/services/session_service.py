@@ -172,3 +172,20 @@ async def update_trip(trip_id: int, **updates) -> Optional[dict]:
     if result.data:
         return result.data[0]
     return None
+
+
+async def update_trip_status(trip_id: int, status: str) -> Optional[dict]:
+    """
+    Update trip status.
+
+    Args:
+        trip_id: Trip ID
+        status: New status ('active', 'completed', 'cancelled')
+
+    Returns:
+        Updated trip record
+    """
+    if status not in ('active', 'completed', 'cancelled'):
+        raise ValueError(f"Invalid status: {status}")
+
+    return await update_trip(trip_id, status=status)
