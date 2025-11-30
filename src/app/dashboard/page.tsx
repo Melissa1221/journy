@@ -16,6 +16,7 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -84,7 +85,7 @@ export default function Dashboard() {
   const progressPercent = activeTrip ? (activeTrip.currentDay / activeTrip.totalDays) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-secondary/30">
       {/* Header - Hidden on mobile */}
       <div className="hidden md:block">
         <Header />
@@ -218,8 +219,145 @@ export default function Dashboard() {
         {/* ACTIVE TRIP - HERO SECTION */}
         {hasActiveTrip && activeTrip && (
         <>
-        {/* Quick Stats Bar - Super Visual */}
-        <section className="px-4 pt-4 md:pt-6 md:container md:mx-auto md:max-w-6xl mb-6">
+        {/* Hero Card con Foto - Lo primero que ve el usuario */}
+        <section className="px-4 pt-6 md:pt-8 md:container md:mx-auto md:max-w-6xl mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 90 }}
+          >
+            <Card className="overflow-hidden rounded-[32px] border-none shadow-hover">
+              {/* Cover Image con info overlay */}
+              <div className="relative h-72 md:h-96">
+                <Image
+                  src={activeTrip.coverImage}
+                  alt={activeTrip.name}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
+
+                {/* Badge días restantes - Top right */}
+                <div className="absolute top-4 right-4">
+                  <Badge className="bg-primary text-primary-foreground border-none px-4 py-2 rounded-full text-sm font-bold shadow-xl">
+                    <Clock className="h-4 w-4 mr-1.5 inline" />
+                    {activeTrip.daysLeft} días
+                  </Badge>
+                </div>
+
+                {/* Info del viaje - Bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+                  <div className="mb-4">
+                    <h1 className="text-3xl md:text-5xl font-black text-white mb-2 drop-shadow-2xl">
+                      {activeTrip.name}
+                    </h1>
+                    <p className="text-lg md:text-xl text-white/90 font-medium drop-shadow-lg">
+                      {activeTrip.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 text-sm text-white/90 mb-4">
+                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-2 rounded-full">
+                      <MapPin className="h-4 w-4" />
+                      <span className="font-medium">{activeTrip.location}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-2 rounded-full">
+                      <Calendar className="h-4 w-4" />
+                      <span className="font-medium">{activeTrip.startDate} - {activeTrip.endDate}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-2 rounded-full">
+                      <Users className="h-4 w-4" />
+                      <span className="font-medium">{activeTrip.participants.length} viajeros</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm font-semibold text-white/90">
+                      <span>Día {activeTrip.currentDay} de {activeTrip.totalDays}</span>
+                      <span>{Math.round(progressPercent)}% completado</span>
+                    </div>
+                    <div className="w-full bg-white/20 backdrop-blur-sm rounded-full h-3 overflow-hidden">
+                      <motion.div
+                        className="bg-gradient-to-r from-primary to-coral h-full rounded-full shadow-[0_0_15px_rgba(255,135,80,0.6)]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPercent}%` }}
+                        transition={{ type: "spring", damping: 25, stiffness: 80, delay: 0.4 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+
+        {/* CTA PRINCIPAL - Lo más importante: ir al viaje */}
+        <section className="px-4 md:container md:mx-auto md:max-w-6xl mb-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", damping: 20, stiffness: 90 }}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => router.push(`/session/${activeTrip.id}`)}
+            className="cursor-pointer"
+          >
+            <Card className="bg-gradient-to-br from-primary/10 via-coral/5 to-background border-none shadow-hover rounded-[32px] p-6 md:p-8 relative overflow-hidden">
+              {/* Background pattern */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-coral rounded-full blur-3xl" />
+              </div>
+
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="h-6 w-6 text-primary" />
+                      <span className="text-sm font-semibold text-primary uppercase tracking-wide">
+                        Continuar viaje
+                      </span>
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-black text-foreground mb-2">
+                      Reportar gastos y compartir momentos
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Chatea con IA, reporta gastos, sube fotos y más
+                    </p>
+                  </div>
+                  <ChevronRight className="h-8 w-8 text-primary" />
+                </div>
+
+                {/* Participantes online */}
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    {activeTrip.participants.slice(0, 4).map((p, idx) => (
+                      <Avatar key={idx} className={`h-8 w-8 ${p.color} border-2 border-card`}>
+                        <AvatarFallback className="text-xs font-bold text-white">
+                          {p.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {activeTrip.participants.length} viajeros
+                  </span>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+
+        {/* Quick Stats Bar - Métricas importantes */}
+        <section className="px-4 md:container md:mx-auto md:max-w-6xl mb-8">
+          <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-primary" />
+            Resumen del viaje
+          </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
 
             {/* Stat 1 - Total Gastado */}
@@ -232,14 +370,14 @@ export default function Dashboard() {
               onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
               className="cursor-pointer"
             >
-              <Card className="bg-gradient-to-br from-coral/20 to-coral/5 border border-coral/30 p-4 hover:shadow-2xl transition-all">
+              <Card className="bg-gradient-to-br from-coral/20 to-coral/5 border-none p-4 hover:shadow-hover transition-all shadow-soft rounded-3xl">
                 <div className="flex items-center gap-3">
-                  <div className="bg-coral/20 rounded-full p-2">
-                    <Wallet className="h-5 w-5 text-coral" />
+                  <div className="bg-coral/20 rounded-2xl p-3">
+                    <Wallet className="h-6 w-6 text-coral" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground font-medium">Total gastado</p>
-                    <p className="text-xl md:text-2xl font-black text-coral truncate">S/{activeTrip.stats.totalSpent}</p>
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Total gastado</p>
+                    <p className="text-2xl md:text-3xl font-black text-coral truncate">S/{activeTrip.stats.totalSpent}</p>
                   </div>
                 </div>
               </Card>
@@ -255,27 +393,27 @@ export default function Dashboard() {
               onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
               className="cursor-pointer"
             >
-              <Card className={`p-4 hover:shadow-2xl transition-all ${
+              <Card className={`p-4 hover:shadow-hover transition-all shadow-soft rounded-3xl border-none ${
                 activeTrip.stats.yourBalance < 0
-                  ? "bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30"
-                  : "bg-gradient-to-br from-green-500/20 to-green-500/5 border border-green-500/30"
+                  ? "bg-gradient-to-br from-red-500/20 to-red-500/5"
+                  : "bg-gradient-to-br from-greenSuccess/20 to-greenSuccess/5"
               }`}>
                 <div className="flex items-center gap-3">
-                  <div className={`rounded-full p-2 ${
-                    activeTrip.stats.yourBalance < 0 ? "bg-red-500/20" : "bg-green-500/20"
+                  <div className={`rounded-2xl p-3 ${
+                    activeTrip.stats.yourBalance < 0 ? "bg-red-500/20" : "bg-greenSuccess/20"
                   }`}>
                     {activeTrip.stats.yourBalance < 0 ? (
-                      <TrendingDown className="h-5 w-5 text-red-500" />
+                      <TrendingDown className="h-6 w-6 text-red-500" />
                     ) : (
-                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      <TrendingUp className="h-6 w-6 text-greenSuccess" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground font-medium">
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">
                       {activeTrip.stats.yourBalance < 0 ? "Debes" : "Te deben"}
                     </p>
-                    <p className={`text-xl md:text-2xl font-black truncate ${
-                      activeTrip.stats.yourBalance < 0 ? "text-red-500" : "text-green-500"
+                    <p className={`text-2xl md:text-3xl font-black truncate ${
+                      activeTrip.stats.yourBalance < 0 ? "text-red-500" : "text-greenSuccess"
                     }`}>
                       S/{Math.abs(activeTrip.stats.yourBalance)}
                     </p>
@@ -294,14 +432,14 @@ export default function Dashboard() {
               onClick={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
               className="cursor-pointer"
             >
-              <Card className="bg-gradient-to-br from-greenNature/20 to-greenNature/5 border border-greenNature/30 p-4 hover:shadow-2xl transition-all">
+              <Card className="bg-gradient-to-br from-greenNature/20 to-greenNature/5 border-none p-4 hover:shadow-hover transition-all shadow-soft rounded-3xl">
                 <div className="flex items-center gap-3">
-                  <div className="bg-greenNature/20 rounded-full p-2">
-                    <Camera className="h-5 w-5 text-greenNature" />
+                  <div className="bg-greenNature/20 rounded-2xl p-3">
+                    <Camera className="h-6 w-6 text-greenNature" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground font-medium">Fotos</p>
-                    <p className="text-xl md:text-2xl font-black text-greenNature">{activeTrip.stats.photosCount}</p>
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Fotos</p>
+                    <p className="text-2xl md:text-3xl font-black text-greenNature">{activeTrip.stats.photosCount}</p>
                   </div>
                 </div>
               </Card>
@@ -317,14 +455,14 @@ export default function Dashboard() {
               onClick={() => router.push(`/trip/${activeTrip.id}?section=map`)}
               className="cursor-pointer"
             >
-              <Card className="bg-gradient-to-br from-blueSnow/20 to-blueSnow/5 border border-blueSnow/30 p-4 hover:shadow-2xl transition-all">
+              <Card className="bg-gradient-to-br from-blueSnow/20 to-blueSnow/5 border-none p-4 hover:shadow-hover transition-all shadow-soft rounded-3xl">
                 <div className="flex items-center gap-3">
-                  <div className="bg-blueSnow/20 rounded-full p-2">
-                    <Map className="h-5 w-5 text-blueSnow" />
+                  <div className="bg-blueSnow/20 rounded-2xl p-3">
+                    <Map className="h-6 w-6 text-blueSnow" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground font-medium">Lugares</p>
-                    <p className="text-xl md:text-2xl font-black text-blueSnow">{activeTrip.stats.placesVisited}</p>
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Lugares</p>
+                    <p className="text-2xl md:text-3xl font-black text-blueSnow">{activeTrip.stats.placesVisited}</p>
                   </div>
                 </div>
               </Card>
@@ -333,228 +471,85 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="mb-8 md:mb-12">
-          {/* Label: Viaje Actual */}
-          <div className="px-4 md:container md:mx-auto md:max-w-6xl">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-sm font-bold text-primary uppercase tracking-wide">
-                  Tu Viaje Actual
-                </h2>
-              </div>
-              <Badge className="bg-primary/10 text-primary border border-primary/20 hidden md:flex items-center">
-                <Clock className="h-3 w-3 mr-1" />
-                {activeTrip.daysLeft} días restantes
-              </Badge>
-            </div>
-          </div>
-
-          {/* Hero Card - COMPLETAMENTE CLICKEABLE */}
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", damping: 20, stiffness: 80, delay: 0.5 }}
-            whileHover={{ scale: 1.02, y: -4 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push(`/session/${activeTrip.id}`)}
-            className="cursor-pointer"
-          >
-            <Card className="mx-4 md:mx-auto md:max-w-6xl rounded-3xl overflow-hidden shadow-2xl border-2 border-primary/20 hover:border-primary/50 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] transition-all">
-
-              {/* Cover Image Section */}
-              <div className="relative h-56 md:h-80">
-                <Image
-                  src={activeTrip.coverImage}
-                  alt={activeTrip.name}
-                  fill
-                  className="object-cover"
-                />
-
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
-
-                {/* Days Left Badge - Top Right */}
-                <div className="absolute top-4 right-4">
-                  <Badge className="bg-primary text-primary-foreground px-4 py-2 text-sm font-bold shadow-xl border-2 border-white/20">
-                    <Clock className="h-3 w-3 mr-1 inline" />
-                    {activeTrip.daysLeft} días restantes
-                  </Badge>
-                </div>
-
-                {/* Trip Title - Bottom Left */}
-                <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6">
-                  <div className="mb-3">
-                    <h1 className="text-3xl md:text-5xl font-black text-white mb-2 drop-shadow-2xl">
-                      {activeTrip.name}
-                    </h1>
-                    <p className="text-lg md:text-xl text-white/90 font-medium">
-                      {activeTrip.subtitle}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 text-sm text-white/90 mb-4">
-                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full">
-                      <MapPin className="h-4 w-4" />
-                      <span className="font-medium">{activeTrip.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full">
-                      <Calendar className="h-4 w-4" />
-                      <span className="font-medium">
-                        {activeTrip.startDate} - {activeTrip.endDate}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full">
-                      <Users className="h-4 w-4" />
-                      <span className="font-medium">{activeTrip.participants.length} viajeros</span>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold text-white/80">
-                      <span>Día {activeTrip.currentDay} de {activeTrip.totalDays}</span>
-                      <span>{Math.round(progressPercent)}%</span>
-                    </div>
-                    <div className="w-full bg-white/20 backdrop-blur rounded-full h-2.5 overflow-hidden">
-                      <motion.div
-                        className="bg-gradient-to-r from-primary to-accent h-full rounded-full shadow-[0_0_10px_rgba(255,135,80,0.5)]"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPercent}%` }}
-                        transition={{ type: "spring", damping: 25, stiffness: 80, delay: 0.8 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Section - Participants Only */}
-              <div className="bg-gradient-to-br from-card to-card/50 p-6">
-
-                {/* Participants */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-                      Viajeros
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                      {activeTrip.participants.length} personas
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {activeTrip.participants.map((p, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", damping: 15, stiffness: 120, delay: 0.9 + idx * 0.08 }}
-                        className="flex items-center gap-2 bg-background/50 backdrop-blur px-3 py-2 rounded-full border border-border/50 hover:border-primary/40 transition-all cursor-pointer"
-                        whileHover={{ scale: 1.1, y: -3 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Avatar className={`h-6 w-6 ${p.color} border-2 border-background`}>
-                          <AvatarFallback className="text-[10px] font-bold text-white">
-                            {p.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">{p.name}</span>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* CTA - Abrir Viaje */}
-                <div className="mt-6 flex items-center justify-center">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                    <span>Click para ver detalles del viaje</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-
-              </div>
-            </Card>
-          </motion.div>
-        </section>
-
-        {/* QUICK ACTIONS - Super Interactive */}
-        <section className="px-4 md:container md:mx-auto md:max-w-6xl mb-8 md:mb-12">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Acciones Rápidas
+        {/* ACCIONES SECUNDARIAS - Explorar más */}
+        <section className="px-4 md:container md:mx-auto md:max-w-6xl mb-12">
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-foreground">
+              Explorar más del viaje
             </h2>
+            <p className="text-sm text-muted-foreground mt-1">Ver detalles y recuerdos</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-            {/* Action 1 - Add Expense */}
+            {/* Action 2 - Ver Galería */}
             <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.2 }}
-              whileHover={{ scale: 1.05, y: -8 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
-              className="cursor-pointer"
-            >
-              <Card className="bg-gradient-to-br from-coral/10 via-card to-card border-2 border-coral/30 hover:border-coral/60 transition-all p-6 hover:shadow-2xl group">
-                <div className="flex items-center gap-4">
-                  <div className="bg-coral/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
-                    <Wallet className="h-8 w-8 text-coral" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">Ver gastos</h3>
-                    <p className="text-sm text-muted-foreground">Control financiero del viaje</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-coral transition-colors" />
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* Action 2 - Add Photo */}
-            <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.3 }}
-              whileHover={{ scale: 1.05, y: -8 }}
-              whileTap={{ scale: 0.97 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
               className="cursor-pointer"
             >
-              <Card className="bg-gradient-to-br from-greenNature/10 via-card to-card border-2 border-greenNature/30 hover:border-greenNature/60 transition-all p-6 hover:shadow-2xl group">
-                <div className="flex items-center gap-4">
-                  <div className="bg-greenNature/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
-                    <Camera className="h-8 w-8 text-greenNature" />
+              <Card className="bg-card border-none shadow-soft hover:shadow-hover transition-all p-5 rounded-3xl group">
+                <div className="flex items-center gap-3">
+                  <div className="bg-greenNature/20 rounded-2xl p-3 group-hover:bg-greenNature/30 transition-all">
+                    <Camera className="h-6 w-6 text-greenNature" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">Ver galería</h3>
-                    <p className="text-sm text-muted-foreground">Fotos y momentos del viaje</p>
+                    <h3 className="font-semibold text-foreground group-hover:text-greenNature transition-colors">Ver galería</h3>
+                    <p className="text-xs text-muted-foreground">{activeTrip.stats.photosCount} fotos</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-greenNature transition-colors" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-greenNature group-hover:translate-x-1 transition-all" />
                 </div>
               </Card>
             </motion.div>
 
-            {/* Action 3 - View Map */}
+            {/* Action 3 - Ver Mapa */}
             <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.4 }}
-              whileHover={{ scale: 1.05, y: -8 }}
-              whileTap={{ scale: 0.97 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => router.push(`/trip/${activeTrip.id}?section=map`)}
               className="cursor-pointer"
             >
-              <Card className="bg-gradient-to-br from-blueSnow/10 via-card to-card border-2 border-blueSnow/30 hover:border-blueSnow/60 transition-all p-6 hover:shadow-2xl group">
-                <div className="flex items-center gap-4">
-                  <div className="bg-blueSnow/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
-                    <MapPin className="h-8 w-8 text-blueSnow" />
+              <Card className="bg-card border-none shadow-soft hover:shadow-hover transition-all p-5 rounded-3xl group">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blueSnow/20 rounded-2xl p-3 group-hover:bg-blueSnow/30 transition-all">
+                    <MapPin className="h-6 w-6 text-blueSnow" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">Ver mapa</h3>
-                    <p className="text-sm text-muted-foreground">Línea de tiempo visual</p>
+                    <h3 className="font-semibold text-foreground group-hover:text-blueSnow transition-colors">Ver mapa</h3>
+                    <p className="text-xs text-muted-foreground">{activeTrip.stats.placesVisited} lugares</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-blueSnow transition-colors" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-blueSnow group-hover:translate-x-1 transition-all" />
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Action 1 - Ver Detalles (nuevo) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
+              className="cursor-pointer"
+            >
+              <Card className="bg-card border-none shadow-soft hover:shadow-hover transition-all p-5 rounded-3xl group">
+                <div className="flex items-center gap-3">
+                  <div className="bg-coral/20 rounded-2xl p-3 group-hover:bg-coral/30 transition-all">
+                    <Wallet className="h-6 w-6 text-coral" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground group-hover:text-coral transition-colors">Ver detalles</h3>
+                    <p className="text-xs text-muted-foreground">Gastos y resumen</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-coral group-hover:translate-x-1 transition-all" />
                 </div>
               </Card>
             </motion.div>
@@ -566,12 +561,12 @@ export default function Dashboard() {
         <section className="px-4 md:container md:mx-auto md:max-w-6xl">
 
           {/* Section Header */}
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-muted-foreground">
+          <div className="mb-6">
+            <h2 className="text-xl font-black text-foreground">
               Viajes Anteriores
             </h2>
-            <p className="text-sm text-muted-foreground/80">
-              Tus aventuras pasadas
+            <p className="text-sm text-muted-foreground mt-1">
+              Revive tus aventuras pasadas
             </p>
           </div>
 
@@ -587,7 +582,7 @@ export default function Dashboard() {
                 whileTap={{ scale: 0.98 }}
                 onClick={() => router.push(`/session/${trip.id}`)}
               >
-                <Card className="rounded-2xl overflow-hidden cursor-pointer hover:shadow-2xl transition-all border border-border/50 hover:border-primary/30">
+                <Card className="rounded-3xl overflow-hidden cursor-pointer hover:shadow-hover transition-all border-none shadow-soft">
                   <div className="flex md:flex-col">
 
                     {/* Image */}
@@ -620,11 +615,10 @@ export default function Dashboard() {
           </div>
 
           {/* Create New Trip Button */}
-          <div className="mt-6">
+          <div className="mt-8">
             <Button
-              variant="outline"
               size="lg"
-              className="w-full md:w-auto rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5"
+              className="w-full md:w-auto rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-soft hover:shadow-hover transition-all"
               onClick={() => router.push("/create-session")}
             >
               <Sparkles className="h-5 w-5 mr-2" />
