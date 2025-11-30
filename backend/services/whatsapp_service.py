@@ -263,6 +263,28 @@ class WhatsAppService:
             return True
         return False
 
+    def link_phone_to_user(self, phone_number: str, user_id: str, display_name: str) -> WhatsAppUser:
+        """Link a phone number to a registered user account.
+
+        This is called when a user verifies their phone via the 'vincular' command.
+        It updates the in-memory user store to use the linked account info.
+        """
+        phone = phone_number.replace("whatsapp:", "")
+
+        # Check if user already exists with this phone
+        existing = self._users.get(phone)
+
+        user = WhatsAppUser(
+            phone_number=phone,
+            display_name=display_name,
+            active_trip_id=existing.active_trip_id if existing else None,
+            active_session_code=existing.active_session_code if existing else None
+        )
+
+        self._users[phone] = user
+        print(f"[WhatsApp] Linked phone {phone} to user {user_id} ({display_name})")
+        return user
+
 
 # Singleton instance
 _whatsapp_service: Optional[WhatsAppService] = None
