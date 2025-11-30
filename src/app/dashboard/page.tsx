@@ -90,27 +90,27 @@ export default function Dashboard() {
         <Header />
       </div>
 
-      {/* Main Content */}
-      <main className="pb-20 md:pb-8">
+      {/* Main Content - Padding top to account for fixed header */}
+      <main className="pb-20 md:pb-8 md:pt-16">
 
         {/* EMPTY STATE - Primera vez / Sin viajes activos */}
         {!hasActiveTrip && (
           <section className="min-h-[80vh] flex items-center justify-center px-4 py-12">
             <motion.div
               className="max-w-4xl mx-auto text-center"
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ type: "spring", damping: 20, stiffness: 100 }}
             >
               {/* Animated Hero Icon */}
               <motion.div
                 className="mb-8"
                 animate={{
-                  y: [0, -20, 0],
-                  rotate: [0, 5, -5, 0]
+                  y: [0, -25, 0],
+                  rotate: [0, 8, -8, 0]
                 }}
                 transition={{
-                  duration: 4,
+                  duration: 3.5,
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
@@ -135,12 +135,15 @@ export default function Dashboard() {
 
                 {/* Option 1: Create Trip */}
                 <motion.div
-                  whileHover={{ scale: 1.03, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", damping: 18, stiffness: 90, delay: 0.2 }}
+                  whileHover={{ scale: 1.05, y: -8 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => router.push("/create-session")}
                   className="cursor-pointer"
                 >
-                  <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/30 hover:border-primary/60 transition-all p-6 md:p-8">
+                  <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/30 hover:border-primary/60 transition-all p-6 md:p-8 shadow-lg hover:shadow-2xl">
                     <div className="text-5xl md:text-6xl mb-4">🚀</div>
                     <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2">
                       Crear mi viaje
@@ -157,11 +160,14 @@ export default function Dashboard() {
 
                 {/* Option 2: Join Trip */}
                 <motion.div
-                  whileHover={{ scale: 1.03, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", damping: 18, stiffness: 90, delay: 0.35 }}
+                  whileHover={{ scale: 1.05, y: -8 }}
+                  whileTap={{ scale: 0.97 }}
                   className="cursor-pointer"
                 >
-                  <Card className="bg-gradient-to-br from-greenNature/10 to-blueSnow/10 border-2 border-greenNature/30 hover:border-greenNature/60 transition-all p-6 md:p-8">
+                  <Card className="bg-gradient-to-br from-greenNature/10 to-blueSnow/10 border-2 border-greenNature/30 hover:border-greenNature/60 transition-all p-6 md:p-8 shadow-lg hover:shadow-2xl">
                     <div className="text-5xl md:text-6xl mb-4">🎉</div>
                     <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2">
                       Unirme a un viaje
@@ -212,25 +218,145 @@ export default function Dashboard() {
         {/* ACTIVE TRIP - HERO SECTION */}
         {hasActiveTrip && activeTrip && (
         <>
+        {/* Quick Stats Bar - Super Visual */}
+        <section className="px-4 pt-4 md:pt-6 md:container md:mx-auto md:max-w-6xl mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+
+            {/* Stat 1 - Total Gastado */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.1 }}
+              whileHover={{ scale: 1.08, y: -8 }}
+              whileTap={{ scale: 0.95 }}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-coral/20 to-coral/5 border border-coral/30 p-4 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="bg-coral/20 rounded-full p-2">
+                    <Wallet className="h-5 w-5 text-coral" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">Total gastado</p>
+                    <p className="text-xl md:text-2xl font-black text-coral truncate">S/{activeTrip.stats.totalSpent}</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Stat 2 - Tu Balance */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.2 }}
+              whileHover={{ scale: 1.08, y: -8 }}
+              whileTap={{ scale: 0.95 }}
+              className="cursor-pointer"
+            >
+              <Card className={`p-4 hover:shadow-2xl transition-all ${
+                activeTrip.stats.yourBalance < 0
+                  ? "bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/30"
+                  : "bg-gradient-to-br from-green-500/20 to-green-500/5 border border-green-500/30"
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-full p-2 ${
+                    activeTrip.stats.yourBalance < 0 ? "bg-red-500/20" : "bg-green-500/20"
+                  }`}>
+                    {activeTrip.stats.yourBalance < 0 ? (
+                      <TrendingDown className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {activeTrip.stats.yourBalance < 0 ? "Debes" : "Te deben"}
+                    </p>
+                    <p className={`text-xl md:text-2xl font-black truncate ${
+                      activeTrip.stats.yourBalance < 0 ? "text-red-500" : "text-green-500"
+                    }`}>
+                      S/{Math.abs(activeTrip.stats.yourBalance)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Stat 3 - Fotos */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.3 }}
+              whileHover={{ scale: 1.08, y: -8 }}
+              whileTap={{ scale: 0.95 }}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-greenNature/20 to-greenNature/5 border border-greenNature/30 p-4 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="bg-greenNature/20 rounded-full p-2">
+                    <Camera className="h-5 w-5 text-greenNature" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">Fotos</p>
+                    <p className="text-xl md:text-2xl font-black text-greenNature">{activeTrip.stats.photosCount}</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Stat 4 - Lugares */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.4 }}
+              whileHover={{ scale: 1.08, y: -8 }}
+              whileTap={{ scale: 0.95 }}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-blueSnow/20 to-blueSnow/5 border border-blueSnow/30 p-4 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blueSnow/20 rounded-full p-2">
+                    <Map className="h-5 w-5 text-blueSnow" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-medium">Lugares</p>
+                    <p className="text-xl md:text-2xl font-black text-blueSnow">{activeTrip.stats.placesVisited}</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+          </div>
+        </section>
+
         <section className="mb-8 md:mb-12">
           {/* Label: Viaje Actual */}
-          <div className="px-4 pt-4 md:pt-6 md:container md:mx-auto md:max-w-6xl">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-sm font-bold text-primary uppercase tracking-wide">
-                Tu Viaje Actual
-              </h2>
+          <div className="px-4 md:container md:mx-auto md:max-w-6xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-sm font-bold text-primary uppercase tracking-wide">
+                  Tu Viaje Actual
+                </h2>
+              </div>
+              <Badge className="bg-primary/10 text-primary border border-primary/20 hidden md:flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                {activeTrip.daysLeft} días restantes
+              </Badge>
             </div>
           </div>
 
           {/* Hero Card - COMPLETAMENTE CLICKEABLE */}
           <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={() => router.push(`/trip/${activeTrip.id}`)}
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", damping: 20, stiffness: 80, delay: 0.5 }}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => router.push(`/session/${activeTrip.id}`)}
             className="cursor-pointer"
           >
-            <Card className="mx-4 md:mx-auto md:max-w-6xl rounded-3xl overflow-hidden shadow-2xl border-2 border-primary/20 hover:border-primary/40 transition-all">
+            <Card className="mx-4 md:mx-auto md:max-w-6xl rounded-3xl overflow-hidden shadow-2xl border-2 border-primary/20 hover:border-primary/50 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] transition-all">
 
               {/* Cover Image Section */}
               <div className="relative h-56 md:h-80">
@@ -288,21 +414,21 @@ export default function Dashboard() {
                     </div>
                     <div className="w-full bg-white/20 backdrop-blur rounded-full h-2.5 overflow-hidden">
                       <motion.div
-                        className="bg-gradient-to-r from-primary to-accent h-full rounded-full"
+                        className="bg-gradient-to-r from-primary to-accent h-full rounded-full shadow-[0_0_10px_rgba(255,135,80,0.5)]"
                         initial={{ width: 0 }}
                         animate={{ width: `${progressPercent}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 80, delay: 0.8 }}
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Content Section - Stats & Participants */}
-              <div className="bg-gradient-to-br from-card to-card/50 p-6 md:p-8">
+              {/* Content Section - Participants Only */}
+              <div className="bg-gradient-to-br from-card to-card/50 p-6">
 
                 {/* Participants */}
-                <div className="mb-6">
+                <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
                       Viajeros
@@ -311,11 +437,16 @@ export default function Dashboard() {
                       {activeTrip.participants.length} personas
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {activeTrip.participants.map((p, idx) => (
-                      <div
+                      <motion.div
                         key={idx}
-                        className="flex items-center gap-2 bg-background/50 backdrop-blur px-3 py-2 rounded-full border border-border/50"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", damping: 15, stiffness: 120, delay: 0.9 + idx * 0.08 }}
+                        className="flex items-center gap-2 bg-background/50 backdrop-blur px-3 py-2 rounded-full border border-border/50 hover:border-primary/40 transition-all cursor-pointer"
+                        whileHover={{ scale: 1.1, y: -3 }}
+                        whileTap={{ scale: 0.95 }}
                       >
                         <Avatar className={`h-6 w-6 ${p.color} border-2 border-background`}>
                           <AvatarFallback className="text-[10px] font-bold text-white">
@@ -323,73 +454,9 @@ export default function Dashboard() {
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm font-medium">{p.name}</span>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-                  {/* Total Gastado */}
-                  <div className="bg-gradient-to-br from-coral/20 to-coral/5 rounded-2xl p-4 border border-coral/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Wallet className="h-5 w-5 text-coral" />
-                      <TrendingUp className="h-4 w-4 text-coral" />
-                    </div>
-                    <p className="text-2xl md:text-3xl font-black text-foreground">
-                      S/{activeTrip.stats.totalSpent}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">
-                      Total gastado
-                    </p>
-                  </div>
-
-                  {/* Tu Balance */}
-                  <div className={`rounded-2xl p-4 border-2 ${
-                    activeTrip.stats.yourBalance < 0
-                      ? "bg-gradient-to-br from-red-500/20 to-red-500/5 border-red-500/40"
-                      : "bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/40"
-                  }`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      {activeTrip.stats.yourBalance < 0 ? (
-                        <TrendingDown className="h-5 w-5 text-red-500" />
-                      ) : (
-                        <TrendingUp className="h-5 w-5 text-green-500" />
-                      )}
-                    </div>
-                    <p className={`text-2xl md:text-3xl font-black ${
-                      activeTrip.stats.yourBalance < 0 ? "text-red-500" : "text-green-500"
-                    }`}>
-                      S/{Math.abs(activeTrip.stats.yourBalance)}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">
-                      {activeTrip.stats.yourBalance < 0 ? "Debes" : "Te deben"}
-                    </p>
-                  </div>
-
-                  {/* Fotos */}
-                  <div className="bg-gradient-to-br from-greenNature/20 to-greenNature/5 rounded-2xl p-4 border border-greenNature/30">
-                    <Camera className="h-5 w-5 text-greenNature mb-2" />
-                    <p className="text-2xl md:text-3xl font-black text-foreground">
-                      {activeTrip.stats.photosCount}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">
-                      Fotos guardadas
-                    </p>
-                  </div>
-
-                  {/* Lugares */}
-                  <div className="bg-gradient-to-br from-blueSnow/20 to-blueSnow/5 rounded-2xl p-4 border border-blueSnow/30">
-                    <Map className="h-5 w-5 text-blueSnow mb-2" />
-                    <p className="text-2xl md:text-3xl font-black text-foreground">
-                      {activeTrip.stats.placesVisited}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">
-                      Lugares visitados
-                    </p>
-                  </div>
-
                 </div>
 
                 {/* CTA - Abrir Viaje */}
@@ -403,6 +470,92 @@ export default function Dashboard() {
               </div>
             </Card>
           </motion.div>
+        </section>
+
+        {/* QUICK ACTIONS - Super Interactive */}
+        <section className="px-4 md:container md:mx-auto md:max-w-6xl mb-8 md:mb-12">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Acciones Rápidas
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* Action 1 - Add Expense */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.2 }}
+              whileHover={{ scale: 1.05, y: -8 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-coral/10 via-card to-card border-2 border-coral/30 hover:border-coral/60 transition-all p-6 hover:shadow-2xl group">
+                <div className="flex items-center gap-4">
+                  <div className="bg-coral/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
+                    <Wallet className="h-8 w-8 text-coral" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-foreground mb-1">Agregar gasto</h3>
+                    <p className="text-sm text-muted-foreground">Registra un nuevo gasto</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-coral transition-colors" />
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Action 2 - Add Photo */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.3 }}
+              whileHover={{ scale: 1.05, y: -8 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-greenNature/10 via-card to-card border-2 border-greenNature/30 hover:border-greenNature/60 transition-all p-6 hover:shadow-2xl group">
+                <div className="flex items-center gap-4">
+                  <div className="bg-greenNature/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
+                    <Camera className="h-8 w-8 text-greenNature" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-foreground mb-1">Subir foto</h3>
+                    <p className="text-sm text-muted-foreground">Captura tus momentos</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-greenNature transition-colors" />
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Action 3 - View Map */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.4 }}
+              whileHover={{ scale: 1.05, y: -8 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              className="cursor-pointer"
+            >
+              <Card className="bg-gradient-to-br from-blueSnow/10 via-card to-card border-2 border-blueSnow/30 hover:border-blueSnow/60 transition-all p-6 hover:shadow-2xl group">
+                <div className="flex items-center gap-4">
+                  <div className="bg-blueSnow/20 rounded-2xl p-4 group-hover:scale-110 transition-transform">
+                    <MapPin className="h-8 w-8 text-blueSnow" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-foreground mb-1">Ver mapa</h3>
+                    <p className="text-sm text-muted-foreground">Explora tus lugares</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-blueSnow transition-colors" />
+                </div>
+              </Card>
+            </motion.div>
+
+          </div>
         </section>
 
         {/* PAST TRIPS - SECCIÓN SEPARADA */}
@@ -420,14 +573,17 @@ export default function Dashboard() {
 
           {/* Past Trips Grid */}
           <div className="space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
-            {pastTrips.map((trip) => (
+            {pastTrips.map((trip, idx) => (
               <motion.div
                 key={trip.id}
-                whileHover={{ scale: 1.02 }}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", damping: 18, stiffness: 85, delay: 1.5 + idx * 0.1 }}
+                whileHover={{ scale: 1.04, y: -6 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => router.push(`/trip/${trip.id}`)}
+                onClick={() => router.push(`/session/${trip.id}`)}
               >
-                <Card className="rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-all border border-border/50 hover:border-border">
+                <Card className="rounded-2xl overflow-hidden cursor-pointer hover:shadow-2xl transition-all border border-border/50 hover:border-primary/30">
                   <div className="flex md:flex-col">
 
                     {/* Image */}
@@ -484,9 +640,9 @@ export default function Dashboard() {
       {/* Floating Action Button - Only show if there's an active trip */}
       {hasActiveTrip && activeTrip && (
         <FloatingActionButton
-          onAddExpense={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
-          onAddPhoto={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
-          onAddNote={() => console.log("Add note")}
+          onAddExpense={() => router.push(`/session/${activeTrip.id}`)}
+          onAddPhoto={() => router.push(`/session/${activeTrip.id}`)}
+          onAddNote={() => router.push(`/session/${activeTrip.id}`)}
         />
       )}
     </div>
