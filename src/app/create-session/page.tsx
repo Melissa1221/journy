@@ -4,43 +4,82 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Calendar, Users, Plus } from "lucide-react";
+import { Calendar, Users, Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ShareSessionDialog from "@/components/ShareSessionDialog";
 import BackButton from "@/components/BackButton";
+import { useAuth } from "@/contexts/AuthContext";
+import { createTrip } from "@/lib/api/sessions";
 
 export default function CreateSession() {
   const [sessionName, setSessionName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [location, setLocation] = useState("");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sessionCode, setSessionCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { session, loading: authLoading } = useAuth();
 
-  const generateSessionCode = () => {
-    // Generate a 6-character alphanumeric code
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (sessionName.trim() && startDate && endDate) {
-      const code = generateSessionCode();
-      setSessionCode(code);
+    setError(null);
+
+    if (!sessionName.trim() || !startDate || !endDate) {
+      setError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    if (!session?.access_token) {
+      setError("Debes iniciar sesión para crear una sesión");
+      router.push("/auth");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const trip = await createTrip(
+        {
+          name: sessionName.trim(),
+          start_date: startDate,
+          end_date: endDate,
+          location: location.trim() || undefined,
+        },
+        session.access_token
+      );
+
+      setSessionCode(trip.session_code);
       setShowShareDialog(true);
+    } catch (err) {
+      console.error("Error creating trip:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al crear la sesión. Intenta de nuevo."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleContinue = () => {
     setShowShareDialog(false);
-    router.push("/session/1");
+    // Navigate to the session using the actual code from the API
+    router.push(`/session/${sessionCode}`);
   };
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,6 +105,13 @@ export default function CreateSession() {
 
           <Card className="rounded-2xl shadow-card p-8">
             <form className="space-y-6" onSubmit={handleSubmit}>
+              {/* Error message */}
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+
               {/* Session Name */}
               <div>
                 <Label htmlFor="sessionName" className="text-base font-semibold mb-3 block">
@@ -77,10 +123,26 @@ export default function CreateSession() {
                   value={sessionName}
                   onChange={(e) => setSessionName(e.target.value)}
                   className="h-14 text-base"
+                  disabled={isSubmitting}
                 />
                 <p className="text-sm text-muted-foreground mt-2">
                   Dale un nombre descriptivo para que todos lo reconozcan
                 </p>
+              </div>
+
+              {/* Location (optional) */}
+              <div>
+                <Label htmlFor="location" className="text-base font-semibold mb-3 block">
+                  Ubicación <span className="text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  id="location"
+                  placeholder="Ej: Cusco, Perú"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="h-14 text-base"
+                  disabled={isSubmitting}
+                />
               </div>
 
               {/* Dates */}
@@ -96,6 +158,7 @@ export default function CreateSession() {
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       className="h-14 text-base"
+                      disabled={isSubmitting}
                     />
                     <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                   </div>
@@ -112,6 +175,7 @@ export default function CreateSession() {
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       className="h-14 text-base"
+                      disabled={isSubmitting}
                     />
                     <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                   </div>
@@ -139,9 +203,16 @@ export default function CreateSession() {
                   type="submit"
                   size="lg"
                   className="w-full"
-                  disabled={!sessionName.trim() || !startDate || !endDate}
+                  disabled={!sessionName.trim() || !startDate || !endDate || isSubmitting}
                 >
-                  Crear sesión
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Creando sesión...
+                    </>
+                  ) : (
+                    "Crear sesión"
+                  )}
                 </Button>
               </div>
             </form>
