@@ -93,8 +93,8 @@ class JourniState(TypedDict):
 # ============== HELPER FUNCTIONS ==============
 
 def normalize_name(name: str) -> str:
-    """Normalize participant name to avoid case-sensitive duplicates."""
-    return name.strip().lower()
+    """Normalize participant name - preserve original case for display."""
+    return name.strip()
 
 
 def update_balance(balances: dict, person: str, currency: str, amount: float) -> None:
