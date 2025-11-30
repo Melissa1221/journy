@@ -24,6 +24,17 @@ load_dotenv()
 # PostgreSQL persistence (optional - uses InMemorySaver if not configured)
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
 
+# IMPORTANT: Disable psycopg3 prepared statements globally
+# Supabase's transaction pooler (port 6543) uses PgBouncer which is incompatible
+# with prepared statements. This MUST be set before any connections are made.
+try:
+    from psycopg import Connection, AsyncConnection
+    Connection.prepare_threshold = None
+    AsyncConnection.prepare_threshold = None
+    print("🔧 Disabled psycopg3 prepared statements (Supabase pooler compatibility)")
+except ImportError:
+    pass  # psycopg3 not installed
+
 
 # ============== STATE DEFINITION ==============
 
@@ -1371,12 +1382,16 @@ async def get_async_checkpointer():
             print("🔗 Connecting to PostgreSQL (async)...")
 
             # Create async connection pool
+            # Note: prepare_threshold is already disabled at module import level
             pool = AsyncConnectionPool(
                 conninfo=SUPABASE_DB_URL,
                 max_size=10,
+                min_size=1,
                 open=False  # Don't open immediately
             )
             await pool.open()
+
+            print("✅ Connection pool opened")
 
             _checkpointer = AsyncPostgresSaver(pool)
 
