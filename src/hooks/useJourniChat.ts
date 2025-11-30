@@ -45,6 +45,7 @@ export interface ChatMessage {
   timestamp: string;
   hasImage?: boolean;
   thinkingSteps?: ThinkingStep[];
+  source?: "web" | "whatsapp";
 }
 
 export interface SessionState {
@@ -244,6 +245,43 @@ export function useJourniChat({
         break;
       }
 
+      case "whatsapp_message": {
+        // User message from WhatsApp
+        const whatsappUserMsg: ChatMessage = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          type: "user",
+          content: data.content as string,
+          userId: data.user_id as string,
+          timestamp,
+          source: "whatsapp",
+        };
+        setMessages((prev) => [...prev, whatsappUserMsg]);
+
+        // AI response (already complete from backend)
+        if (data.response) {
+          const whatsappBotMsg: ChatMessage = {
+            id: `bot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            type: "bot",
+            content: data.response as string,
+            timestamp,
+          };
+          setMessages((prev) => [...prev, whatsappBotMsg]);
+        }
+
+        // Update session state if provided
+        if (data.expenses || data.balances || data.participants || data.debts) {
+          setSessionState((prev) => ({
+            ...prev,
+            expenses: (data.expenses as Expense[]) || prev.expenses,
+            payments: (data.payments as Payment[]) || prev.payments,
+            balances: (data.balances as Record<string, Record<string, number>>) || prev.balances,
+            participants: (data.participants as string[]) || prev.participants,
+            debts: (data.debts as Record<string, Debt[]>) || prev.debts,
+          }));
+        }
+        break;
+      }
+
       case "thinking_step": {
         const step: ThinkingStep = {
           step: data.step as "tool_call" | "tool_result",
@@ -327,13 +365,20 @@ export function useJourniChat({
           }));
         }
 
-        const systemMessage: ChatMessage = {
-          id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          type: "system",
-          content: `${joinedUser} se unió`,
-          timestamp,
-        };
-        setMessages((prev) => [...prev, systemMessage]);
+        const joinContent = `${joinedUser} se unió`;
+        setMessages((prev) => {
+          // Dedupe: skip if last system message has same content
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg?.type === "system" && lastMsg?.content === joinContent) {
+            return prev;
+          }
+          return [...prev, {
+            id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            type: "system",
+            content: joinContent,
+            timestamp,
+          }];
+        });
         break;
       }
 
@@ -341,13 +386,20 @@ export function useJourniChat({
         const leftUser = data.user_id as string;
         setOnlineUsers((prev) => prev.filter((u) => u !== leftUser));
 
-        const systemMessage: ChatMessage = {
-          id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          type: "system",
-          content: `${leftUser} se desconectó`,
-          timestamp,
-        };
-        setMessages((prev) => [...prev, systemMessage]);
+        const leftContent = `${leftUser} se desconectó`;
+        setMessages((prev) => {
+          // Dedupe: skip if last system message has same content
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg?.type === "system" && lastMsg?.content === leftContent) {
+            return prev;
+          }
+          return [...prev, {
+            id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            type: "system",
+            content: leftContent,
+            timestamp,
+          }];
+        });
         break;
       }
 
