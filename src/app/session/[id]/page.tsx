@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,6 +13,7 @@ import ShareSessionDialog from "@/components/ShareSessionDialog";
 import { ChatConversation } from "@/components/chat/ChatConversation";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useJourniChat } from "@/hooks/useJourniChat";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Color palette for avatars
 const AVATAR_COLORS = ["#FF8750", "#6EBF4E", "#BEE5FF", "#F3E5F5", "#FFE3CC", "#B9E88A"];
@@ -24,18 +25,54 @@ function getAvatarColor(name: string): string {
 export default function Session() {
   const params = useParams();
   const sessionId = params.id as string;
+  const { user, loading: authLoading } = useAuth();
+  const hasConnectedRef = useRef(false);
+  const stableNameRef = useRef<string | null>(null);
 
-  // TODO: Get userId from auth context or local storage
-  const [userId] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("journi_user_id");
-      if (stored) return stored;
-      const newId = `user_${Math.random().toString(36).slice(2, 6)}`;
-      localStorage.setItem("journi_user_id", newId);
-      return newId;
+  // Get stable display name - only set once to avoid reconnections
+  const displayName = (() => {
+    // If we already have a stable name, use it
+    if (stableNameRef.current) {
+      return stableNameRef.current;
     }
-    return `user_${Math.random().toString(36).slice(2, 6)}`;
-  });
+
+    // Wait for auth to load before determining name
+    if (authLoading) {
+      return null;
+    }
+
+    let name: string;
+
+    // First priority: authenticated user's name
+    if (user?.user_metadata?.full_name) {
+      name = user.user_metadata.full_name;
+    } else if (typeof window !== "undefined") {
+      // Check for anonymous user profile from join flow
+      const userProfile = localStorage.getItem("userProfile");
+      if (userProfile) {
+        try {
+          const profile = JSON.parse(userProfile);
+          if (profile.name) {
+            name = profile.name;
+          } else {
+            name = `Invitado_${Math.random().toString(36).slice(2, 6)}`;
+          }
+        } catch {
+          name = `Invitado_${Math.random().toString(36).slice(2, 6)}`;
+        }
+      } else {
+        // Fallback: check for old journi_user_id
+        const stored = localStorage.getItem("journi_user_id");
+        name = stored || `Invitado_${Math.random().toString(36).slice(2, 6)}`;
+      }
+    } else {
+      name = `Invitado_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    // Store the stable name
+    stableNameRef.current = name;
+    return name;
+  })();
 
   const [showShareDialog, setShowShareDialog] = useState(false);
 
@@ -53,15 +90,36 @@ export default function Session() {
     onlineUsers,
   } = useJourniChat({
     sessionId,
-    userId,
+    userId: displayName || "loading",
     onError: (error) => console.error("Chat error:", error),
   });
 
-  // Auto-connect on mount
+  // Auto-connect on mount (only once, after auth loads)
   useEffect(() => {
-    connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+    // Don't connect until we have a display name (auth finished loading)
+    if (!displayName) {
+      console.log("[Session] Waiting for auth to load...");
+      return;
+    }
+
+    console.log("[Session] useEffect triggered, hasConnected:", hasConnectedRef.current, "displayName:", displayName);
+
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      console.log("[Session] Calling connect()");
+      connect();
+    }
+
+    // Only disconnect on unmount, not on re-renders
+    return () => {
+      if (hasConnectedRef.current) {
+        console.log("[Session] Component unmounting - disconnecting");
+        disconnect();
+        hasConnectedRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayName]);
 
   const handleSendMessage = (content: string, image?: string) => {
     sendMessage(content, image);
@@ -89,6 +147,18 @@ export default function Session() {
     amount,
     percentage: totalSpent > 0 ? (amount / totalSpent * 100).toFixed(1) : "0"
   }));
+
+  // Show loading while auth is loading
+  if (!displayName) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,7 +209,7 @@ export default function Session() {
                 Chat del Grupo
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Conectado como <span className="font-medium">{userId}</span>
+                Conectado como <span className="font-medium">{displayName}</span>
               </p>
             </div>
 

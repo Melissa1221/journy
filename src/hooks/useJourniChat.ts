@@ -110,16 +110,26 @@ export function useJourniChat({
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log("[WS] Already connected, skipping");
+      return;
+    }
+
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log("[WS] Already connecting, skipping");
       return;
     }
 
     setStatus("connecting");
 
     const wsUrl = BACKEND_URL.replace(/^http/, "ws");
-    const ws = new WebSocket(`${wsUrl}/ws/${sessionId}/${userId}`);
+    const fullUrl = `${wsUrl}/ws/${sessionId}/${userId}`;
+    console.log("[WS] Connecting to:", fullUrl);
+
+    const ws = new WebSocket(fullUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("[WS] Connected successfully");
       setStatus("connected");
       setOnlineUsers((prev) => [...new Set([...prev, userId])]);
     };
@@ -127,19 +137,21 @@ export function useJourniChat({
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("[WS] Message received:", data.type);
         handleMessage(data);
       } catch (err) {
-        console.error("Failed to parse message:", err);
+        console.error("[WS] Failed to parse message:", err);
       }
     };
 
     ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("[WS] WebSocket error:", error);
       setStatus("error");
       onError?.(new Error("WebSocket connection error"));
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log("[WS] Connection closed:", event.code, event.reason);
       setStatus("disconnected");
       wsRef.current = null;
     };
