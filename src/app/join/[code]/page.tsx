@@ -29,9 +29,9 @@ export default function JoinSession() {
   };
 
   const handleJoin = () => {
-    if (name.trim() && profileImage) {
-      // Store in localStorage for demo purposes
-      localStorage.setItem('userProfile', JSON.stringify({ name, image: profileImage }));
+    if (name.trim()) {
+      // Store in localStorage - image is optional
+      localStorage.setItem('userProfile', JSON.stringify({ name: name.trim(), image: profileImage }));
       router.push(`/session/${code}`);
     }
   };
@@ -106,7 +106,7 @@ export default function JoinSession() {
           <Button
             size="lg"
             className="w-full"
-            disabled={!name.trim() || !profileImage}
+            disabled={!name.trim()}
             onClick={handleJoin}
           >
             Entrar a la sesión
