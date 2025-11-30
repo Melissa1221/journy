@@ -225,7 +225,7 @@ export function useJourniChat({
       case "bot_complete": {
         const content = data.content as string;
         const botMessage: ChatMessage = {
-          id: `bot_${Date.now()}`,
+          id: `bot_${Date.now()}_${Math.random().toString(36).slice(2)}`,
           type: "bot",
           content,
           timestamp,
@@ -269,7 +269,7 @@ export function useJourniChat({
         }
 
         const systemMessage: ChatMessage = {
-          id: `sys_${Date.now()}`,
+          id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
           type: "system",
           content: `${joinedUser} se unió`,
           timestamp,
@@ -283,7 +283,7 @@ export function useJourniChat({
         setOnlineUsers((prev) => prev.filter((u) => u !== leftUser));
 
         const systemMessage: ChatMessage = {
-          id: `sys_${Date.now()}`,
+          id: `sys_${Date.now()}_${Math.random().toString(36).slice(2)}`,
           type: "system",
           content: `${leftUser} se desconectó`,
           timestamp,
