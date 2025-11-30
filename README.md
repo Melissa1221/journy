@@ -11,7 +11,8 @@
 > JOURNI convierte el caos de los gastos grupales en **transparencia total**, mientras captura cada momento especial del viaje.
 
 <div align="center">
-  <img src="./public/assets/travelers-illustration.png" width="400" alt="JOURNI - Viaja sin preocupaciones" />
+  <video src="./public/assets/demo/demo-uso.mp4" controls width="100%"></video>
+  <p><em>Demo en vivo: Dos usuarios interactuando en tiempo real en la plataforma web</em></p>
 </div>
 
 ---
@@ -39,6 +40,11 @@ Olvídate de formularios. Solo habla naturalmente:
 - *"Juan pagó 100 del almuerzo para todos"* → ✅ Automáticamente dividido
 - *"¿Cuánto debo?"* → 💰 Balance instantáneo
 - *"Edita el gasto del taxi a 60"* → ✏️ Corregido
+
+<div align="center">
+  <video src="./public/assets/demo/chatbot-wsp.mp4" controls width="100%"></video>
+  <p><em>Chatbot en WhatsApp: Gestiona tus gastos desde donde estés</em></p>
+</div>
 
 ### 📸 Álbum de Recuerdos Vivo
 - Sube fotos mientras viajas
@@ -137,6 +143,11 @@ Nuestro agente basado en **LangGraph** no solo entiende texto, sino que **actúa
 - 🤖 Respuestas del asistente IA
 - 📥 Notificaciones de entrada/salida
 - 🖼️ Imágenes compartidas (base64)
+
+<div align="center">
+  <img src="./public/assets/demo/wsp-link.jpeg" width="80%" alt="WhatsApp Link - Conéctate desde WhatsApp" />
+  <p><em>Integración con WhatsApp para uso sin fricciones</em></p>
+</div>
 
 ---
 
@@ -349,6 +360,11 @@ SUPABASE_KEY=tu_service_role_key
    ```
 3. Configura autenticación por email en Supabase Authentication
 
+<div align="center">
+  <img src="./public/assets/demo/AUTH_SETUP.jpeg" width="90%" alt="Configuración de Autenticación en Supabase" />
+  <p><em>Configuración de autenticación en Supabase Dashboard</em></p>
+</div>
+
 #### 4. **Frontend - Instalación y Ejecución**
 ```bash
 # Instalar dependencias
@@ -434,42 +450,6 @@ GET /
 - 🎭 Animaciones suaves con Framer Motion
 - 📱 Diseño mobile-first responsive
 - ♿ Contraste accesible y tipografía clara
-
----
-
-## 🌟 Ideas de Capturas de Pantalla
-
-Para mejorar este README, considera agregar estas capturas:
-
-1. **`./screenshots/landing-hero.png`**
-   *Captura del hero de la landing page mostrando el problema y la solución*
-
-2. **`./screenshots/chat-natural-language.gif`**
-   *GIF mostrando conversación natural: "Pagué 50 del taxi" → gasto registrado*
-
-3. **`./screenshots/dashboard-overview.png`**
-   *Dashboard con tarjeta hero del viaje activo y estadísticas*
-
-4. **`./screenshots/balance-calculation.png`**
-   *Pantalla de balances mostrando "quién debe a quién" optimizado*
-
-5. **`./screenshots/photo-album.png`**
-   *Álbum de fotos organizado por momentos con timeline*
-
-6. **`./screenshots/memory-map.png`**
-   *Mapa interactivo con marcadores de lugares visitados*
-
-7. **`./screenshots/chat-real-time.gif`**
-   *GIF de múltiples usuarios chateando en tiempo real*
-
-8. **`./screenshots/mobile-views.png`**
-   *Vista responsive en móvil mostrando chat y gastos*
-
-9. **`./screenshots/share-invite.png`**
-   *Dialog de compartir con código de 6 caracteres*
-
-10. **`./screenshots/expense-analytics.png`**
-    *Gráficos de análisis de gastos con Recharts*
 
 ---
 

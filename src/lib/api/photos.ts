@@ -104,3 +104,66 @@ export async function getTripPhotos(tripId: number): Promise<Photo[]> {
     return [];
   }
 }
+
+export interface UploadPhotosOptions {
+  tripId: number;
+  photos: File[];
+  milestoneId?: number;
+  description?: string;
+  accessToken?: string;
+}
+
+export interface UploadPhotosResult {
+  success: boolean;
+  photos: Photo[];
+  count: number;
+}
+
+/**
+ * Upload one or more photos to a trip.
+ *
+ * @param options - Upload options including trip ID, photos, and optional metadata
+ * @returns Upload result with created photos
+ */
+export async function uploadPhotos(
+  options: UploadPhotosOptions
+): Promise<UploadPhotosResult> {
+  try {
+    const formData = new FormData();
+
+    // Append all photos
+    options.photos.forEach((photo) => {
+      formData.append("photos", photo);
+    });
+
+    // Append optional metadata
+    if (options.milestoneId) {
+      formData.append("milestone_id", options.milestoneId.toString());
+    }
+
+    if (options.description) {
+      formData.append("description", options.description);
+    }
+
+    const headers: Record<string, string> = {};
+    if (options.accessToken) {
+      headers.Authorization = `Bearer ${options.accessToken}`;
+    }
+
+    const res = await fetch(`${API_URL}/api/trips/${options.tripId}/photos`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.detail || `Failed to upload photos: ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error uploading photos:", error);
+    throw error;
+  }
+}
