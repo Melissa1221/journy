@@ -634,6 +634,7 @@ Los mensajes vienen como "[nombre]: mensaje"
 
 MONEDAS (MUY IMPORTANTE):
 Los gastos se registran con su moneda real. NO conviertas entre monedas.
+- RECUERDA LA MONEDA: Una vez que se establece la moneda en el primer gasto, USA ESA MISMA MONEDA para todos los gastos siguientes SIN PREGUNTAR, a menos que el usuario especifique otra.
 - DETECTA la moneda del contexto geográfico:
   - Chile: CLP (pesos chilenos)
   - Perú: PEN (soles)
@@ -644,7 +645,7 @@ Los gastos se registran con su moneda real. NO conviertas entre monedas.
   - Lugares mencionados: "taxi en Santiago" → CLP, "almuerzo en Lima" → PEN
   - Símbolos: "S/" o "soles" → PEN, "$" en Chile → CLP, "CLP" explícito → CLP
   - Montos típicos: 23000 en Chile = CLP, 50 en Perú = PEN
-- Si no está claro, PREGUNTA: "¿En qué moneda fue?"
+- SOLO pregunta por moneda si es el PRIMER gasto de la sesión y no hay contexto claro
 - Las deudas se calculan SEPARADAMENTE por cada moneda, sin mezclar
 
 HERRAMIENTAS:
