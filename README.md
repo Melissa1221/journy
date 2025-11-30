@@ -88,9 +88,6 @@ Nuestro agente basado en **LangGraph** no solo entiende texto, sino que **actúa
 - 🗺️ Etiquetar ubicaciones
 - 👁️ Analizar fotos con visión artificial (GPT-4o)
 
-![Chat con IA](./public/assets/balance-illustration.png)
-*Ejemplo: Conversación natural para registrar gastos*
-
 ---
 
 ### 2. 📊 Dashboard Inteligente
@@ -113,8 +110,10 @@ Nuestro agente basado en **LangGraph** no solo entiende texto, sino que **actúa
 - Ver mapa de recuerdos
 - Compartir código del viaje
 
-![Dashboard](./public/assets/hero-landscape.png)
-*Vista del dashboard con estadísticas del viaje*
+<div align="center">
+  <img src="./public/assets/demo/dashboard.jpeg" width="700" alt="Dashboard principal de JOURNI" />
+  <p><em>Dashboard con viaje activo, resumen de gastos y viajes anteriores</em></p>
+</div>
 
 ---
 
@@ -124,9 +123,6 @@ Nuestro agente basado en **LangGraph** no solo entiende texto, sino que **actúa
 - **Visualización temporal** de tu ruta
 - **Fotos geoetiquetadas** en cada lugar
 - **Navegación fluida** entre momentos
-
-![Mapa de Recuerdos](./public/assets/map-background.png)
-*Visualiza tu viaje en un mapa interactivo*
 
 ---
 
@@ -158,8 +154,31 @@ Nuestro agente basado en **LangGraph** no solo entiende texto, sino que **actúa
 - **Compartir en un clic**: Link directo al viaje
 - **Lista de participantes** con avatares
 
-![Compartir Viaje](./public/assets/money-friends-illustration.png)
-*Invita a tus amigos con un código simple*
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="./public/assets/demo/crear-sesion.jpeg" width="280" alt="Crear nueva sesión" /></td>
+      <td align="center"><img src="./public/assets/demo/sesion-creada.jpeg" width="280" alt="Sesión creada con código" /></td>
+    </tr>
+    <tr>
+      <td align="center"><em>Crea tu viaje en segundos</em></td>
+      <td align="center"><em>Comparte el código con tu grupo</em></td>
+    </tr>
+  </table>
+</div>
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="./public/assets/demo/unirse-logueado.jpeg" width="280" alt="Unirse como usuario logueado" /></td>
+      <td align="center"><img src="./public/assets/demo/unirse-invitado.jpeg" width="280" alt="Unirse como invitado anónimo" /></td>
+    </tr>
+    <tr>
+      <td align="center"><em>Usuario registrado se une al viaje</em></td>
+      <td align="center"><em>Invitado anónimo - sin registro</em></td>
+    </tr>
+  </table>
+</div>
 
 ---
 
