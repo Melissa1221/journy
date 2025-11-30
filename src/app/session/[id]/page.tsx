@@ -110,13 +110,11 @@ export default function Session() {
       connect();
     }
 
-    // Only disconnect on unmount, not on re-renders
+    // Only disconnect on actual unmount (when navigating away)
     return () => {
-      if (hasConnectedRef.current) {
-        console.log("[Session] Component unmounting - disconnecting");
-        disconnect();
-        hasConnectedRef.current = false;
-      }
+      console.log("[Session] Cleanup called");
+      // Don't reset hasConnectedRef - let the hook manage connection state
+      disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayName]);
