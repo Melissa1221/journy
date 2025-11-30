@@ -229,6 +229,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.1 }}
               whileHover={{ scale: 1.08, y: -8 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-coral/20 to-coral/5 border border-coral/30 p-4 hover:shadow-2xl transition-all">
@@ -251,6 +252,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.2 }}
               whileHover={{ scale: 1.08, y: -8 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
               className="cursor-pointer"
             >
               <Card className={`p-4 hover:shadow-2xl transition-all ${
@@ -289,6 +291,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.3 }}
               whileHover={{ scale: 1.08, y: -8 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-greenNature/20 to-greenNature/5 border border-greenNature/30 p-4 hover:shadow-2xl transition-all">
@@ -311,6 +314,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 100, delay: 0.4 }}
               whileHover={{ scale: 1.08, y: -8 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=map`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-blueSnow/20 to-blueSnow/5 border border-blueSnow/30 p-4 hover:shadow-2xl transition-all">
@@ -490,7 +494,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.2 }}
               whileHover={{ scale: 1.05, y: -8 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=expenses`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-coral/10 via-card to-card border-2 border-coral/30 hover:border-coral/60 transition-all p-6 hover:shadow-2xl group">
@@ -499,8 +503,8 @@ export default function Dashboard() {
                     <Wallet className="h-8 w-8 text-coral" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">Agregar gasto</h3>
-                    <p className="text-sm text-muted-foreground">Registra un nuevo gasto</p>
+                    <h3 className="font-bold text-lg text-foreground mb-1">Ver gastos</h3>
+                    <p className="text-sm text-muted-foreground">Control financiero del viaje</p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-coral transition-colors" />
                 </div>
@@ -514,7 +518,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.3 }}
               whileHover={{ scale: 1.05, y: -8 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-greenNature/10 via-card to-card border-2 border-greenNature/30 hover:border-greenNature/60 transition-all p-6 hover:shadow-2xl group">
@@ -523,8 +527,8 @@ export default function Dashboard() {
                     <Camera className="h-8 w-8 text-greenNature" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">Subir foto</h3>
-                    <p className="text-sm text-muted-foreground">Captura tus momentos</p>
+                    <h3 className="font-bold text-lg text-foreground mb-1">Ver galería</h3>
+                    <p className="text-sm text-muted-foreground">Fotos y momentos del viaje</p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-greenNature transition-colors" />
                 </div>
@@ -538,7 +542,7 @@ export default function Dashboard() {
               transition={{ type: "spring", damping: 18, stiffness: 90, delay: 1.4 }}
               whileHover={{ scale: 1.05, y: -8 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => router.push(`/session/${activeTrip.id}`)}
+              onClick={() => router.push(`/trip/${activeTrip.id}?section=map`)}
               className="cursor-pointer"
             >
               <Card className="bg-gradient-to-br from-blueSnow/10 via-card to-card border-2 border-blueSnow/30 hover:border-blueSnow/60 transition-all p-6 hover:shadow-2xl group">
@@ -548,7 +552,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-lg text-foreground mb-1">Ver mapa</h3>
-                    <p className="text-sm text-muted-foreground">Explora tus lugares</p>
+                    <p className="text-sm text-muted-foreground">Línea de tiempo visual</p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-blueSnow transition-colors" />
                 </div>
@@ -641,7 +645,7 @@ export default function Dashboard() {
       {hasActiveTrip && activeTrip && (
         <FloatingActionButton
           onAddExpense={() => router.push(`/session/${activeTrip.id}`)}
-          onAddPhoto={() => router.push(`/session/${activeTrip.id}`)}
+          onAddPhoto={() => router.push(`/trip/${activeTrip.id}?section=moments`)}
           onAddNote={() => router.push(`/session/${activeTrip.id}`)}
         />
       )}

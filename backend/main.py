@@ -11,7 +11,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Union
 import json
 import uuid
 import asyncio
@@ -214,7 +214,7 @@ def extract_structured_data(state_values: dict) -> dict:
 
 
 def detect_action_from_expenses(old_expenses: list, new_expenses: list,
-                                 old_payments: list, new_payments: list) -> dict | None:
+                                 old_payments: list, new_payments: list) -> Optional[dict]:
     """Detect what action was performed by comparing states."""
     # Check for new expense
     if len(new_expenses) > len(old_expenses):
@@ -256,8 +256,8 @@ def detect_action_from_expenses(old_expenses: list, new_expenses: list,
     return None
 
 
-def build_multimodal_content(text: str, image_base64: str | None = None,
-                              image_type: str = "image/jpeg") -> list | str:
+def build_multimodal_content(text: str, image_base64: Optional[str] = None,
+                              image_type: str = "image/jpeg") -> Union[list, str]:
     """Build multimodal content for LangChain messages.
 
     Args:
@@ -584,8 +584,21 @@ async def websocket_endpoint(
                     message_with_user = f"[{user_id}]: {content}"
 
                     # Build session context for AI awareness
+                    # Get trip_id from session_code (thread_id)
+                    trip_id = None
+                    try:
+                        from services import get_db
+                        trip_id = get_db().get_trip_id_from_session_code(thread_id)
+                        if trip_id:
+                            print(f"✅ [{thread_id}] Resolved trip_id: {trip_id}")
+                        else:
+                            print(f"⚠️ [{thread_id}] No trip found for session_code")
+                    except Exception as e:
+                        print(f"⚠️ [{thread_id}] Error resolving trip_id: {e}")
+
                     session_context = {
                         "current_user": user_id,
+                        "trip_id": trip_id,  # Add trip_id for database persistence
                         "pending_uploads": []  # Will be populated if images are uploaded
                     }
 
@@ -796,6 +809,101 @@ async def websocket_endpoint(
     except Exception as e:
         print(f"WebSocket error: {e}")
         await room_manager.disconnect(thread_id, user_id, websocket)
+
+
+# ============== PHOTO/MILESTONE REST API ==============
+
+@app.get("/api/trips/{trip_id}/milestones")
+async def get_trip_milestones(trip_id: int):
+    """
+    Get all milestones for a trip.
+
+    Returns:
+        {
+            "milestones": [
+                {
+                    "id": 1,
+                    "trip_id": 1,
+                    "name": "Sky Costanera",
+                    "description": "...",
+                    "location": "Santiago",
+                    "photo_count": 5,
+                    ...
+                }
+            ]
+        }
+    """
+    from services import get_db
+
+    try:
+        db = get_db()
+        milestones = await db.get_trip_milestones(trip_id)
+        return {"milestones": milestones}
+    except Exception as e:
+        print(f"Error fetching milestones: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/milestones/{milestone_id}/photos")
+async def get_milestone_photos(milestone_id: int):
+    """
+    Get all photos in a specific milestone.
+
+    Returns:
+        {
+            "photos": [
+                {
+                    "id": 1,
+                    "milestone_id": 1,
+                    "photo_url": "https://...",
+                    "description": "Vista increíble...",
+                    "tags": ["paisaje", "grupo"],
+                    ...
+                }
+            ]
+        }
+    """
+    from services import get_db
+
+    try:
+        db = get_db()
+        photos = await db.get_milestone_photos(milestone_id)
+        return {"photos": photos}
+    except Exception as e:
+        print(f"Error fetching milestone photos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/trips/{trip_id}/photos")
+async def get_trip_photos(trip_id: int):
+    """
+    Get all photos for a trip (across all milestones).
+
+    Returns:
+        {
+            "photos": [
+                {
+                    "id": 1,
+                    "trip_id": 1,
+                    "milestone_id": 1,
+                    "photo_url": "https://...",
+                    "description": "...",
+                    "tags": [...],
+                    "detected_people": [...],
+                    ...
+                }
+            ]
+        }
+    """
+    from services import get_db
+
+    try:
+        db = get_db()
+        photos = await db.get_trip_photos(trip_id)
+        return {"photos": photos}
+    except Exception as e:
+        print(f"Error fetching trip photos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============== TEST HTML PAGE ==============
