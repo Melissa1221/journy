@@ -1,10 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Loader2 } from "lucide-react";
 import type { ChatMessage as ChatMessageType, ThinkingStep } from "@/hooks/useJourniChat";
 import { ChatThinking } from "./ChatThinking";
+import { UserAvatar } from "@/components/UserAvatar";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -26,13 +26,11 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
 
   return (
     <div className={cn("flex gap-3", isBot ? "justify-start" : "justify-end", className)}>
-      {/* User avatar on the left */}
-      {isUser && (
-        <Avatar className="h-10 w-10 flex-shrink-0 order-last">
-          <AvatarFallback className="bg-secondary text-foreground font-semibold">
-            {message.userId?.[0]?.toUpperCase() || "U"}
-          </AvatarFallback>
-        </Avatar>
+      {/* User avatar on the right (for user messages) */}
+      {isUser && message.userId && (
+        <div className="flex-shrink-0 order-last">
+          <UserAvatar name={message.userId} size="md" />
+        </div>
       )}
 
       <div className={cn("max-w-[75%] flex flex-col", isBot ? "" : "items-end")}>

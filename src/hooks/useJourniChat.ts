@@ -122,7 +122,9 @@ export function useJourniChat({
     setStatus("connecting");
 
     const wsUrl = BACKEND_URL.replace(/^http/, "ws");
-    const fullUrl = `${wsUrl}/ws/${sessionId}/${userId}`;
+    // Encode userId to handle spaces and special characters in names
+    const encodedUserId = encodeURIComponent(userId);
+    const fullUrl = `${wsUrl}/ws/${sessionId}/${encodedUserId}`;
     console.log("[WS] Connecting to:", fullUrl);
 
     const ws = new WebSocket(fullUrl);
