@@ -33,13 +33,14 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Protected routes
-  const protectedRoutes = ['/dashboard', '/create-session', '/session', '/trip']
+  // Note: /session is NOT protected to allow anonymous users joining via link
+  const protectedRoutes = ['/dashboard', '/create-session', '/trip']
   const isProtectedRoute = protectedRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
 
   // Public routes that don't require auth check
-  const publicRoutes = ['/auth/callback', '/auth/verified']
+  const publicRoutes = ['/auth/callback', '/auth/verified', '/join', '/session']
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
