@@ -21,8 +21,10 @@ from dotenv import load_dotenv
 
 from room_manager import room_manager
 from graph import graph, get_initial_state, normalize_name, get_graph
-from services import get_storage
+from services import get_storage, session_service, auth_service
+from services.auth_service import AuthUser
 from langchain_core.messages import SystemMessage
+from typing import List
 
 load_dotenv()
 
@@ -420,6 +422,200 @@ async def get_session(thread_id: str):
             "balances": {},
             "message_count": 0
         }
+
+
+# ============== TRIP API ENDPOINTS ==============
+
+# Auth helper function
+async def get_auth_user(request: Request) -> Optional[AuthUser]:
+    """Extract authenticated user from request headers."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ", 1)[1]
+    return await auth_service.verify_jwt(token)
+
+
+async def require_auth_user(request: Request) -> AuthUser:
+    """Require authenticated user."""
+    user = await get_auth_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    return user
+
+
+@app.post("/api/trips")
+async def create_trip(request: Request):
+    """
+    Create a new trip. Requires authentication.
+
+    Returns the created trip with generated session_code.
+    """
+    user = await require_auth_user(request)
+
+    body = await request.json()
+
+    # Validate required fields
+    name = body.get("name")
+    start_date = body.get("start_date")
+    end_date = body.get("end_date")
+
+    if not name or not start_date or not end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="name, start_date, and end_date are required"
+        )
+
+    # Parse dates
+    from datetime import date
+    try:
+        start = date.fromisoformat(start_date)
+        end = date.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
+
+    if end < start:
+        raise HTTPException(
+            status_code=400,
+            detail="end_date must be after start_date"
+        )
+
+    # Create trip
+    trip = await session_service.create_trip(
+        creator_id=user.id,
+        name=name,
+        start_date=start,
+        end_date=end,
+        location=body.get("location")
+    )
+
+    return trip
+
+
+@app.get("/api/trips")
+async def list_trips(request: Request):
+    """List all trips for the authenticated user."""
+    user = await require_auth_user(request)
+
+    trips = await session_service.get_user_trips(user.id)
+
+    return {"trips": trips, "total": len(trips)}
+
+
+@app.get("/api/trips/{trip_id}")
+async def get_trip(trip_id: int, request: Request):
+    """Get trip details. Requires participant access."""
+    user = await require_auth_user(request)
+
+    trip = await session_service.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    is_participant = await session_service.is_participant(trip_id, user.id)
+    if not is_participant:
+        raise HTTPException(status_code=403, detail="Not a participant of this trip")
+
+    return trip
+
+
+@app.get("/api/trips/code/{code}")
+async def get_trip_by_code(code: str):
+    """
+    Public endpoint to lookup trip by session code.
+    Used by join page to display trip info before joining.
+    """
+    trip = await session_service.get_trip_by_code(code.upper())
+
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip["status"] != "active":
+        raise HTTPException(status_code=410, detail="Trip is no longer active")
+
+    participant_count = await session_service.get_participant_count(trip["id"])
+
+    # Return limited public info
+    return {
+        "id": trip["id"],
+        "name": trip["name"],
+        "start_date": trip["start_date"],
+        "end_date": trip["end_date"],
+        "location": trip.get("location"),
+        "participant_count": participant_count,
+        "status": trip["status"]
+    }
+
+
+@app.post("/api/trips/{trip_id}/join")
+async def join_trip(trip_id: int, request: Request):
+    """
+    Join a trip.
+    - Authenticated users: linked via user_id
+    - Anonymous users: get temporary token with display_name
+    """
+    trip = await session_service.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip["status"] != "active":
+        raise HTTPException(status_code=410, detail="Trip is no longer active")
+
+    # Check if authenticated
+    user = await get_auth_user(request)
+    body = await request.json()
+
+    if user:
+        # Authenticated user
+        await session_service.add_participant(trip_id, user.id)
+        return {
+            "status": "joined",
+            "user_id": user.id,
+            "trip_id": trip_id,
+            "session_code": trip["session_code"]
+        }
+    else:
+        # Anonymous user - needs display_name
+        display_name = body.get("display_name")
+        if not display_name:
+            raise HTTPException(
+                status_code=400,
+                detail="display_name required for anonymous users"
+            )
+
+        # Create anonymous token
+        token = await auth_service.create_anonymous_token(trip_id, display_name)
+
+        return {
+            "status": "joined",
+            "anonymous_token": token,
+            "display_name": display_name,
+            "trip_id": trip_id,
+            "session_code": trip["session_code"]
+        }
+
+
+@app.delete("/api/trips/{trip_id}")
+async def delete_trip(trip_id: int, request: Request):
+    """Delete a trip. Creator only."""
+    user = await require_auth_user(request)
+
+    trip = await session_service.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip["creator_id"] != user.id:
+        raise HTTPException(status_code=403, detail="Only the trip creator can delete")
+
+    await session_service.delete_trip(trip_id)
+
+    return {"status": "deleted", "trip_id": trip_id}
 
 
 # ============== AUDIO TRANSCRIPTION ==============
