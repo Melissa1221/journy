@@ -668,7 +668,7 @@ Los gastos se registran con su moneda real. NO conviertas entre monedas.
 HERRAMIENTAS:
 - register_expense: Registrar gasto. Parámetros importantes:
   * split_among: Lista de nombres para división IGUAL (ej: ["meli", "andre"] → cada uno paga 50%)
-  * split_amounts: Dict para división DESIGUAL (ej: {"meli": 20, "andre": 30} → montos específicos)
+  * split_amounts: Dict para división DESIGUAL (ej: {{"meli": 20, "andre": 30}} → montos específicos)
   * IMPORTANTE: Usa split_among O split_amounts, NUNCA ambos
 - edit_expense: Modificar gasto existente. Usa expense_id="last" para el último.
 - delete_expense: Eliminar gasto. Usa expense_id="last" para el último.
@@ -726,8 +726,8 @@ Ejemplos:
 - "[pedro]: ¿cuánto debo?" → get_balance("pedro")
 
 DIVISIÓN DESIGUAL (split_amounts):
-- "[meli]: andre pagó 50 de comida, mi plato fue 20" → register_expense(50, "comida", "andre", split_amounts={"meli": 20, "andre": 30})
-- "[pedro]: pagué 100 del almuerzo, yo comí 40, juan 35, maría 25" → register_expense(100, "almuerzo", "pedro", split_amounts={"pedro": 40, "juan": 35, "maría": 25})
+- "[meli]: andre pagó 50 de comida, mi plato fue 20" → register_expense(50, "comida", "andre", split_amounts={{"meli": 20, "andre": 30}})
+- "[pedro]: pagué 100 del almuerzo, yo comí 40, juan 35, maría 25" → register_expense(100, "almuerzo", "pedro", split_amounts={{"pedro": 40, "juan": 35, "maría": 25}})
 - Cuando alguien dice "mi parte fue X" o "yo consumí X" → usa split_amounts
 """
 
