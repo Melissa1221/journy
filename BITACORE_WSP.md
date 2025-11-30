@@ -174,12 +174,23 @@ TWILIO_WHATSAPP_NUMBER=+14155238886
 - Test local exitoso: `WhatsApp message sent: SM19f9f44d58fe69046d06957a158f7525`
 - FASE 1 completada
 
+### 2025-11-30 - FASE 5: Vinculación de Cuentas Web ↔ WhatsApp
+- Creada migración `008_whatsapp_linking.sql` con columnas `phone_number` y `whatsapp_linked_at`
+- Creada tabla `whatsapp_verification_codes` para códigos de verificación temporales
+- Creado componente `LinkWhatsAppDialog.tsx` en frontend con flujo de 3 pasos
+- Agregado botón "Vincular WhatsApp" en el dropdown del Header
+- Backend endpoints:
+  - `POST /api/whatsapp/generate-code` - Genera código de verificación
+  - `GET /api/whatsapp/verify-status?code=XXX` - Polling de estado de verificación
+- Nuevo comando WhatsApp: `vincular CODE` - Vincula número a cuenta web
+
 ---
 
 ## PRÓXIMOS PASOS
 
 1. [x] ~~Arreglar BUG-001 (unirme CODIGO)~~ HECHO
-2. [ ] **REINICIAR BACKEND** en Tilt para aplicar cambios
-3. [ ] Probar flujo completo: unirse + registrar gasto
-4. [ ] Probar envío de imagen (recibo)
-5. [ ] Persistir usuarios WhatsApp en DB
+2. [x] ~~Persistir usuarios WhatsApp en DB~~ HECHO (via `vincular` command)
+3. [ ] **REINICIAR BACKEND** en Tilt para aplicar cambios
+4. [ ] **APLICAR MIGRACIÓN** `008_whatsapp_linking.sql` en Supabase
+5. [ ] Probar flujo completo de vinculación: web → WhatsApp → verificación
+6. [ ] Probar que gastos de WhatsApp usen el nombre del usuario vinculado
