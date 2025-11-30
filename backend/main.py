@@ -15,16 +15,20 @@ from typing import Optional, Union
 import json
 import uuid
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import secrets
+import string
 from dotenv import load_dotenv
 
 from room_manager import room_manager
 from graph import graph, get_initial_state, normalize_name, get_graph
-from services import get_storage, session_service, auth_service
+from services import get_storage, session_service, auth_service, get_supabase_client
 from services.auth_service import AuthUser
+from services.whatsapp_service import get_whatsapp_service, WhatsAppMessage
 from langchain_core.messages import SystemMessage
 from typing import List
+import re
 
 load_dotenv()
 
@@ -49,9 +53,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Initialize async graph with PostgreSQL checkpointer on startup."""
-    print("🚀 Initializing async graph with PostgreSQL...")
-    await get_graph()
-    print("✅ Graph initialized successfully")
+    try:
+        print("🚀 Initializing async graph with PostgreSQL...")
+        await get_graph()
+        print("✅ Graph initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Warning: Failed to initialize graph: {e}")
+        print("⚠️ Server will continue without graph initialization")
+        print("⚠️ Some features may not work until connection is restored")
 
 
 # ============== MODELS ==============
@@ -444,13 +453,22 @@ async def get_session_history(thread_id: str):
         # Convert LangGraph messages to frontend format
         history = []
         for msg in raw_messages:
-            msg_type = getattr(msg, 'type', None)
+            # Handle both LangChain message objects and raw dicts
+            if isinstance(msg, dict):
+                # Raw dict message (e.g., from ainvoke input)
+                msg_type = msg.get('type') or msg.get('role')
+                content = msg.get('content', '')
+                # Handle multimodal content (list of blocks)
+                if isinstance(content, list):
+                    content = extract_text_content(content)
+            else:
+                # LangChain message object
+                msg_type = getattr(msg, 'type', None)
+                content = extract_text_content(getattr(msg, 'content', ''))
 
             # Skip tool messages and system messages
             if msg_type in ('tool', 'system'):
                 continue
-
-            content = extract_text_content(getattr(msg, 'content', ''))
 
             # Filter out empty or JSON-only content
             if not content or is_tool_related_content(content):
@@ -460,7 +478,7 @@ async def get_session_history(thread_id: str):
             if not filtered_content:
                 continue
 
-            if msg_type == 'human':
+            if msg_type in ('human', 'user'):
                 # Parse user_id from message format "[user_id]: content"
                 user_id = "Usuario"
                 actual_content = filtered_content
@@ -475,7 +493,7 @@ async def get_session_history(thread_id: str):
                     "content": actual_content,
                     "timestamp": datetime.now().isoformat()  # LangGraph doesn't store timestamps
                 })
-            elif msg_type in ('ai', 'AIMessageChunk'):
+            elif msg_type in ('ai', 'AIMessageChunk', 'assistant'):
                 history.append({
                     "type": "bot",
                     "content": filtered_content,
@@ -2378,6 +2396,536 @@ async def test_page():
     """
 
 
+# ============== WHATSAPP INTEGRATION ==============
+
+async def process_message_complete(
+    thread_id: str,
+    user_id: str,
+    content: str,
+    image_base64: Optional[str] = None,
+    image_type: str = "image/jpeg"
+) -> dict:
+    """
+    Process a message and return complete response (no streaming).
+
+    This is the core function shared between WebSocket and WhatsApp handlers.
+    Uses graph.ainvoke() instead of graph.astream() for synchronous response.
+
+    Args:
+        thread_id: Session/trip code (LangGraph thread_id)
+        user_id: Display name of the user
+        content: Message text
+        image_base64: Optional base64-encoded image
+        image_type: MIME type of image
+
+    Returns:
+        Dict with response text and structured data
+    """
+    agent_graph = await get_graph()
+    config = {"configurable": {"thread_id": thread_id}}
+
+    # Build message with user context
+    message_with_user = f"[{user_id}]: {content}"
+
+    if image_base64:
+        message_with_user += " [El usuario adjunto una imagen - analizala para extraer informacion del gasto/recibo]"
+
+    # Build session context
+    session_context = {
+        "current_user": user_id,
+        "trip_id": None,
+        "pending_uploads": []
+    }
+
+    # Try to get trip_id from session_code
+    try:
+        from services import get_db
+        trip_id = get_db().get_trip_id_from_session_code(thread_id)
+        session_context["trip_id"] = trip_id
+    except Exception as e:
+        print(f"[WhatsApp] Could not resolve trip_id: {e}")
+
+    # Upload image if present
+    if image_base64:
+        try:
+            storage = get_storage()
+            upload_result = await storage.upload(image_base64, thread_id)
+            if upload_result.success:
+                session_context["pending_uploads"].append({
+                    "url": upload_result.url,
+                    "path": upload_result.path
+                })
+        except Exception as e:
+            print(f"[WhatsApp] Image upload error: {e}")
+
+    # Build multimodal content
+    message_content = build_multimodal_content(message_with_user, image_base64, image_type)
+
+    # Invoke graph (no streaming)
+    print(f"[WhatsApp] Processing: {content[:50]}...")
+
+    try:
+        await agent_graph.ainvoke(
+            {
+                "messages": [{"role": "user", "content": message_content}],
+                "session_context": session_context
+            },
+            config=config
+        )
+
+        # Get final state
+        final_state = await agent_graph.aget_state(config)
+        messages = final_state.values.get("messages", [])
+
+        # Extract last AI response
+        response_text = ""
+        for msg in reversed(messages):
+            if hasattr(msg, 'type') and msg.type in ("ai", "AIMessageChunk") and hasattr(msg, 'content'):
+                raw = extract_text_content(msg.content)
+                response_text = filter_json_from_response(raw, strip=True)
+                if response_text:
+                    break
+
+        # Build structured data
+        balances = final_state.values.get("balances", {})
+        debts = calculate_debts(balances)
+
+        return {
+            "response": response_text or "Mensaje procesado.",
+            "expenses": final_state.values.get("expenses", []),
+            "payments": final_state.values.get("payments", []),
+            "balances": balances,
+            "participants": final_state.values.get("participants", []),
+            "debts": debts
+        }
+
+    except Exception as e:
+        print(f"[WhatsApp] Error processing message: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "response": f"Error procesando mensaje: {str(e)}",
+            "error": True
+        }
+
+
+@app.get("/api/whatsapp/webhook")
+async def whatsapp_verify(request: Request):
+    """
+    Twilio webhook verification endpoint.
+
+    Twilio doesn't use challenge verification like Meta, but we keep this
+    endpoint for health checks and manual testing.
+    """
+    return {"status": "ok", "message": "WhatsApp webhook ready"}
+
+
+@app.post("/api/whatsapp/webhook")
+async def whatsapp_webhook(request: Request):
+    """
+    Handle incoming WhatsApp messages from Twilio.
+
+    Flow:
+    1. Parse incoming message
+    2. Check if user has active trip
+    3. If not, check for "unirme CODIGO" command
+    4. Process message with agent
+    5. Send response via Twilio
+    """
+    whatsapp = get_whatsapp_service()
+
+    if not whatsapp.is_configured():
+        print("[WhatsApp] Service not configured")
+        return {"error": "WhatsApp not configured"}
+
+    # Parse form data from Twilio
+    form_data = await request.form()
+    form_dict = dict(form_data)
+
+    print(f"[WhatsApp] Incoming: {form_dict}")
+
+    # Parse message
+    msg = whatsapp.parse_webhook(form_dict)
+    print(f"[WhatsApp] From: {msg.phone_number}, Body: {msg.body}, Media: {msg.num_media}")
+
+    # Get or create user - first check if this phone is linked to an account
+    user = whatsapp.get_user(msg.phone_number)
+
+    # Check database for linked account (persisted linking)
+    if not user or user.display_name == msg.display_name:
+        # User not in cache or still using WhatsApp profile name - check DB for linked account
+        try:
+            supabase = get_supabase_client()
+            linked_user = supabase.table("users").select("id, full_name, email").eq(
+                "phone_number", msg.phone_number
+            ).execute()
+
+            if linked_user.data:
+                # Phone is linked to a registered user - use their name
+                db_user = linked_user.data[0]
+                linked_name = db_user.get("full_name") or db_user.get("email")
+                print(f"[WhatsApp] Found linked account: {linked_name}")
+
+                # Update/create user with linked account name
+                if user:
+                    user = whatsapp.create_or_update_user(
+                        phone_number=msg.phone_number,
+                        display_name=linked_name,
+                        trip_id=user.active_trip_id,
+                        session_code=user.active_session_code
+                    )
+                else:
+                    user = whatsapp.create_or_update_user(
+                        phone_number=msg.phone_number,
+                        display_name=linked_name
+                    )
+        except Exception as e:
+            print(f"[WhatsApp] Error checking linked account: {e}")
+
+    # Check for commands
+    body_lower = msg.body.lower().strip()
+
+    # Command: vincular CODE (link phone to user account)
+    vincular_match = re.match(r'^vincular\s+([a-zA-Z0-9]+)$', body_lower)
+    if vincular_match:
+        verification_code = vincular_match.group(1).upper()
+        success, result = await handle_vincular_command(msg, msg.phone_number, verification_code)
+        return {"status": "vincular", "success": success, "result": result}
+
+    # Command: unirme ABC123
+    join_match = re.match(r'^unirme\s+([a-zA-Z0-9]+)$', body_lower)
+    if join_match:
+        session_code = join_match.group(1).upper()
+        try:
+            trip = await session_service.get_trip_by_code(session_code)
+            if trip:
+                # Use linked account name if available, otherwise WhatsApp profile name
+                display_name = user.display_name if user else msg.display_name
+                user = whatsapp.create_or_update_user(
+                    phone_number=msg.phone_number,
+                    display_name=display_name,
+                    trip_id=trip.get("id"),
+                    session_code=session_code
+                )
+                await whatsapp.send_message(
+                    msg.from_number,
+                    f"Te has unido al viaje '{trip.get('name')}'! Ahora puedes registrar gastos. Por ejemplo: 'Pague 50 por el taxi'"
+                )
+                return {"status": "joined", "trip": trip.get("name")}
+            else:
+                await whatsapp.send_message(
+                    msg.from_number,
+                    f"No encontre ningun viaje con el codigo '{session_code}'. Verifica el codigo e intenta de nuevo."
+                )
+                return {"status": "not_found"}
+        except Exception as e:
+            print(f"[WhatsApp] Error joining trip: {e}")
+            await whatsapp.send_message(
+                msg.from_number,
+                "Hubo un error al unirte al viaje. Intenta de nuevo."
+            )
+            return {"error": str(e)}
+
+    # Command: mis viajes
+    if body_lower in ["mis viajes", "viajes", "trips"]:
+        if user and user.active_session_code:
+            await whatsapp.send_message(
+                msg.from_number,
+                f"Tu viaje activo es: {user.active_session_code}\n\nPara cambiar de viaje, escribe: unirme CODIGO"
+            )
+        else:
+            await whatsapp.send_message(
+                msg.from_number,
+                "No tienes ningun viaje activo.\n\nPara unirte a un viaje, escribe: unirme CODIGO"
+            )
+        return {"status": "trips_listed"}
+
+    # Command: ayuda
+    if body_lower in ["ayuda", "help", "?"]:
+        await whatsapp.send_message(
+            msg.from_number,
+            "Soy Journi! Te ayudo a llevar las cuentas del viaje.\n\n"
+            "Comandos:\n"
+            "- unirme ABC123 - Unirte a un viaje\n"
+            "- mis viajes - Ver tu viaje activo\n"
+            "- balance - Ver quien debe a quien\n\n"
+            "Para registrar gastos, simplemente dime:\n"
+            "- 'Pague 50 por el taxi'\n"
+            "- 'El almuerzo costo 120, pago Juan'\n"
+            "- Envia una foto de un recibo!"
+        )
+        return {"status": "help_sent"}
+
+    # Check if user has active trip
+    if not user or not user.active_session_code:
+        await whatsapp.send_message(
+            msg.from_number,
+            "Hola! Para empezar, unete a un viaje con:\n\nunirme CODIGO\n\n(El codigo te lo da quien creo el viaje).\n\n 🔗 https://journy-ten.vercel.app/"
+        )
+        return {"status": "no_trip"}
+
+    # Process with agent
+    thread_id = user.active_session_code
+    user_name = user.display_name
+
+    # Handle media (images and audio)
+    image_base64 = None
+    image_type = "image/jpeg"
+    message_content = msg.body
+
+    if msg.num_media > 0 and msg.media_urls and msg.media_types:
+        media_url = msg.media_urls[0]
+        media_type = msg.media_types[0]
+
+        try:
+            if whatsapp.is_audio_type(media_type):
+                # Audio: transcribe with Whisper
+                print(f"[WhatsApp] Transcribing audio: {media_type}")
+                transcribed_text = await whatsapp.transcribe_audio(media_url)
+                print(f"[WhatsApp] Transcribed: {transcribed_text[:100]}...")
+                # Append transcription to message content
+                if message_content:
+                    message_content = f"{message_content}\n\n[Audio transcrito]: {transcribed_text}"
+                else:
+                    message_content = transcribed_text
+
+            elif whatsapp.is_image_type(media_type):
+                # Image: download for vision API
+                image_base64, image_type = await whatsapp.download_media_as_base64(media_url)
+                print(f"[WhatsApp] Downloaded image: {len(image_base64)} bytes, type: {image_type}")
+                if not message_content:
+                    message_content = "(imagen adjunta)"
+
+            else:
+                # Unsupported media type
+                print(f"[WhatsApp] Unsupported media type: {media_type}")
+                if not message_content:
+                    message_content = f"(archivo {media_type} - no soportado)"
+
+        except Exception as e:
+            print(f"[WhatsApp] Failed to process media: {e}")
+            if not message_content:
+                message_content = "(error procesando archivo adjunto)"
+
+    # Ensure we have some content
+    if not message_content:
+        message_content = "(mensaje vacío)"
+
+    # Process message
+    result = await process_message_complete(
+        thread_id=thread_id,
+        user_id=user_name,
+        content=message_content,
+        image_base64=image_base64,
+        image_type=image_type
+    )
+
+    # Send response
+    response_text = result.get("response", "Mensaje procesado.")
+
+    # Truncate if too long for WhatsApp (1600 char limit)
+    if len(response_text) > 1500:
+        response_text = response_text[:1500] + "..."
+
+    await whatsapp.send_message(msg.from_number, response_text)
+
+    # Also broadcast to web users if any are connected
+    try:
+        await room_manager.broadcast(thread_id, {
+            "type": "whatsapp_message",
+            "user_id": user_name,
+            "content": message_content,  # Use message_content (includes audio transcription)
+            "response": response_text,
+            "source": "whatsapp",
+            # Include structured data for UI updates
+            "expenses": result.get("expenses", []),
+            "payments": result.get("payments", []),
+            "balances": result.get("balances", {}),
+            "participants": result.get("participants", []),
+            "debts": result.get("debts", {})
+        })
+    except Exception as e:
+        print(f"[WhatsApp] Could not broadcast to web: {e}")
+
+    return {"status": "processed", "response_length": len(response_text)}
+
+
+# ============== WHATSAPP PHONE LINKING ==============
+
+class GenerateCodeRequest(BaseModel):
+    user_id: str
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+
+
+def generate_verification_code(length: int = 6) -> str:
+    """Generate a random alphanumeric verification code."""
+    characters = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
+
+
+@app.post("/api/whatsapp/generate-code")
+async def whatsapp_generate_code(request: GenerateCodeRequest):
+    """
+    Generate a verification code to link WhatsApp to user account.
+
+    The user will send this code via WhatsApp to verify their phone number.
+    """
+    try:
+        supabase = get_supabase_client()
+
+        # Generate unique code
+        code = generate_verification_code()
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        # Delete any existing pending codes for this user
+        supabase.table("whatsapp_verification_codes").delete().eq(
+            "user_id", request.user_id
+        ).is_("verified_at", "null").execute()
+
+        # Store the code (phone_number will be set when user verifies)
+        result = supabase.table("whatsapp_verification_codes").insert({
+            "user_id": request.user_id,
+            "code": code,
+            "phone_number": "",  # Will be set when user sends the code
+            "expires_at": expires_at.isoformat()
+        }).execute()
+
+        print(f"[WhatsApp] Generated verification code {code} for user {request.user_id}")
+
+        return {"code": code, "expires_at": expires_at.isoformat()}
+
+    except Exception as e:
+        print(f"[WhatsApp] Error generating code: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/whatsapp/verify-status")
+async def whatsapp_verify_status(code: str, request: Request):
+    """
+    Check if a verification code has been verified.
+
+    The frontend polls this endpoint to know when the user has
+    successfully sent the code via WhatsApp.
+    """
+    try:
+        # Get user_id from Authorization header
+        auth_header = request.headers.get("Authorization", "")
+        user_id = auth_header.replace("Bearer ", "") if auth_header else None
+
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Missing authorization")
+
+        supabase = get_supabase_client()
+
+        # Find the verification code
+        result = supabase.table("whatsapp_verification_codes").select("*").eq(
+            "code", code.upper()
+        ).eq("user_id", user_id).execute()
+
+        if not result.data:
+            return {"verified": False, "error": "Code not found"}
+
+        verification = result.data[0]
+
+        # Check if verified
+        if verification.get("verified_at"):
+            return {"verified": True, "phone_number": verification.get("phone_number")}
+
+        # Check if expired
+        expires_at = datetime.fromisoformat(verification["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(expires_at.tzinfo) > expires_at:
+            return {"verified": False, "error": "Code expired"}
+
+        return {"verified": False}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[WhatsApp] Error checking verify status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def handle_vincular_command(msg, phone_number: str, verification_code: str):
+    """
+    Handle the 'vincular CODE' command to link a WhatsApp number to a user account.
+
+    Returns a tuple of (success: bool, message: str)
+    """
+    whatsapp = get_whatsapp_service()
+    supabase = get_supabase_client()
+
+    try:
+        # Find the verification code
+        result = supabase.table("whatsapp_verification_codes").select("*").eq(
+            "code", verification_code.upper()
+        ).is_("verified_at", "null").execute()
+
+        if not result.data:
+            await whatsapp.send_message(
+                msg.from_number,
+                "Codigo no valido o ya utilizado. Genera uno nuevo desde la app web."
+            )
+            return False, "invalid_code"
+
+        verification = result.data[0]
+
+        # Check if expired
+        expires_at = datetime.fromisoformat(verification["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(expires_at.tzinfo) > expires_at:
+            await whatsapp.send_message(
+                msg.from_number,
+                "Este codigo ha expirado. Genera uno nuevo desde la app web."
+            )
+            return False, "expired"
+
+        user_id = verification["user_id"]
+
+        # Update the verification record
+        supabase.table("whatsapp_verification_codes").update({
+            "phone_number": phone_number,
+            "verified_at": datetime.utcnow().isoformat()
+        }).eq("id", verification["id"]).execute()
+
+        # Link phone number to user account
+        supabase.table("users").update({
+            "phone_number": phone_number,
+            "whatsapp_linked_at": datetime.utcnow().isoformat()
+        }).eq("id", user_id).execute()
+
+        # Get user info for display name
+        user_result = supabase.table("users").select("full_name, email").eq(
+            "id", user_id
+        ).execute()
+
+        user_name = "tu cuenta"
+        if user_result.data:
+            user_name = user_result.data[0].get("full_name") or user_result.data[0].get("email") or "tu cuenta"
+
+        # Update WhatsApp service user mapping
+        whatsapp.link_phone_to_user(phone_number, user_id, user_name)
+
+        await whatsapp.send_message(
+            msg.from_number,
+            f"Tu WhatsApp ha sido vinculado a {user_name}. Ahora puedes usar todas las funciones de Journi desde aqui!"
+        )
+
+        print(f"[WhatsApp] Linked phone {phone_number} to user {user_id}")
+        return True, "success"
+
+    except Exception as e:
+        print(f"[WhatsApp] Error linking phone: {e}")
+        import traceback
+        traceback.print_exc()
+        await whatsapp.send_message(
+            msg.from_number,
+            "Hubo un error al vincular tu WhatsApp. Intenta de nuevo."
+        )
+        return False, str(e)
+
+
 # ============== MAIN ==============
 
 if __name__ == "__main__":
@@ -2387,5 +2935,6 @@ if __name__ == "__main__":
     print("Test page: http://localhost:8000/test")
     print("WebSocket: ws://localhost:8000/ws/{thread_id}/{user_id}")
     print("HTTP Chat: POST http://localhost:8000/api/chat")
+    print("WhatsApp: POST http://localhost:8000/api/whatsapp/webhook")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

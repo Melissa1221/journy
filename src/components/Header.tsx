@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Home, PlusCircle, LogOut } from "lucide-react";
+import { Home, PlusCircle, LogOut, MessageCircle } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,11 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/UserAvatar";
+import { LinkWhatsAppDialog } from "@/components/LinkWhatsAppDialog";
 
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
 
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Mis Viajes" },
@@ -81,6 +84,14 @@ const Header = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowWhatsAppDialog(true)}
+                className="cursor-pointer"
+              >
+                <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+                Vincular WhatsApp
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión
@@ -89,6 +100,12 @@ const Header = () => {
           </DropdownMenu>
         </nav>
       </div>
+
+      {/* WhatsApp Linking Dialog */}
+      <LinkWhatsAppDialog
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
+      />
     </header>
   );
 };

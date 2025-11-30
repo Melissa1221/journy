@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { MessageSquare, Loader2, Smartphone } from "lucide-react";
 import type { ChatMessage as ChatMessageType, ThinkingStep } from "@/hooks/useJourniChat";
 import { ChatThinking } from "./ChatThinking";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -36,7 +36,10 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
       <div className={cn("max-w-[75%] flex flex-col", isBot ? "" : "items-end")}>
         {/* Username and time for user messages */}
         {isUser && message.userId && (
-          <p className="text-xs text-muted-foreground mb-1 px-1">
+          <p className="text-xs text-muted-foreground mb-1 px-1 flex items-center gap-1">
+            {message.source === "whatsapp" && (
+              <Smartphone className="h-3 w-3 text-green-600" />
+            )}
             {message.userId} · {formatTime(message.timestamp)}
           </p>
         )}
