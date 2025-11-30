@@ -37,7 +37,7 @@ const Header = () => {
           {showBackButton && <BackButton />}
           <button
             onClick={() => router.push("/dashboard")}
-            className="text-2xl font-bold bg-gradient-to-r from-primary via-accent-foreground to-blue-deep bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+            className="text-2xl font-black text-primary hover:text-primary/80 transition-colors"
           >
             Journi
           </button>
