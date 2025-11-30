@@ -365,6 +365,7 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.1 }}
                 whileHover={{ y: -8 }}
+                onClick={handleAuth}
                 className="group cursor-pointer"
               >
                 <div className="bg-card border border-primary/30 rounded-2xl p-6 text-center hover:border-primary/60 transition-all hover:shadow-lg">
@@ -394,6 +395,7 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.2 }}
                 whileHover={{ y: -8 }}
+                onClick={handleAuth}
                 className="group cursor-pointer"
               >
                 <div className="bg-card border border-greenNature/30 rounded-2xl p-6 text-center hover:border-greenNature/60 transition-all hover:shadow-lg">
@@ -423,6 +425,7 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.3 }}
                 whileHover={{ y: -8 }}
+                onClick={handleAuth}
                 className="group cursor-pointer"
               >
                 <div className="bg-card border border-blueSnow/30 rounded-2xl p-6 text-center hover:border-blueSnow/60 transition-all hover:shadow-lg">

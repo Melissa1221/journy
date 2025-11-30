@@ -146,7 +146,7 @@ export default function TripView() {
         <div className="max-w-7xl mx-auto">
           {activeSection === "expenses" && <TripExpenses />}
           {activeSection === "map" && <TripMemoryMap />}
-          {activeSection === "moments" && <TripMoments />}
+          {activeSection === "moments" && <TripMoments tripId={parseInt(id)} />}
         </div>
       </main>
     </div>

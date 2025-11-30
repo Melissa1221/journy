@@ -1011,10 +1011,13 @@ async def execute_tools(state: JourniState) -> dict:
         # ============== MILESTONE TOOL HANDLERS ==============
         elif tool_name == "create_milestone":
             from datetime import datetime
+            from services import get_db
+
             data = tool_args
             milestone_id = f"milestone_{len(new_milestones) + 1}"
             session_ctx = state.get("session_context", {})
             current_user = session_ctx.get("current_user", "unknown")
+            trip_id = session_ctx.get("trip_id")  # Get trip_id from session context
 
             milestone = {
                 "id": milestone_id,
@@ -1028,6 +1031,25 @@ async def execute_tools(state: JourniState) -> dict:
                 "cover_photo_id": None
             }
             new_milestones.append(milestone)
+
+            # Persist to database if trip_id is available
+            if trip_id:
+                try:
+                    db = get_db()
+                    db_milestone = await db.insert_milestone(
+                        trip_id=trip_id,
+                        name=data["name"],
+                        description=data.get("description"),
+                        location=data.get("location"),
+                        tags=data.get("tags", []),
+                        created_by_user_id=None  # Anonymous user support
+                    )
+                    if db_milestone:
+                        milestone["db_id"] = db_milestone.id
+                        print(f"✅ Milestone persisted to DB: {db_milestone.id}")
+                except Exception as e:
+                    print(f"⚠️ Failed to persist milestone to DB: {e}")
+
             result_content = f"Milestone creado: '{data['name']}'" + (f" en {data['location']}" if data.get('location') else "")
 
         elif tool_name == "edit_milestone":
@@ -1140,6 +1162,34 @@ async def execute_tools(state: JourniState) -> dict:
                             ms["cover_photo_id"] = photo_id
                         new_milestones[idx] = ms
                         break
+
+                # Persist to database if trip_id is available
+                trip_id = session_ctx.get("trip_id")
+                if trip_id and upload_info.get("url"):
+                    try:
+                        from services import get_db
+                        db = get_db()
+
+                        # Get DB milestone ID if available
+                        db_milestone_id = target_milestone.get("db_id")
+
+                        db_photo = await db.insert_photo(
+                            trip_id=trip_id,
+                            milestone_id=db_milestone_id,
+                            photo_url=upload_info.get("url", ""),
+                            storage_path=upload_info.get("path", ""),
+                            uploaded_by_user_id=None,  # Anonymous user support
+                            description=data["description"],
+                            tags=data.get("tags", []),
+                            detected_people=data.get("detected_people", []),
+                            location_name=data.get("location"),
+                            order_index=photo["order_index"]
+                        )
+                        if db_photo:
+                            photo["db_id"] = db_photo.id
+                            print(f"✅ Photo persisted to DB: {db_photo.id}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to persist photo to DB: {e}")
 
                 result_content = f"Foto guardada en '{target_milestone['name']}': {data['description'][:50]}..."
 
