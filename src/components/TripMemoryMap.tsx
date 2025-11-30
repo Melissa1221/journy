@@ -1,213 +1,430 @@
+"use client";
+
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Camera, Users } from "lucide-react";
-import { useState } from "react";
+import { MapPin, Camera, Loader2, Navigation } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { getTripPhotos, type Photo } from "@/lib/api/photos";
 
-const TripMemoryMap = () => {
+interface TripMemoryMapProps {
+  tripId?: number;
+}
+
+const TripMemoryMap = ({ tripId = 1 }: TripMemoryMapProps) => {
   const [selectedMemory, setSelectedMemory] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const memories = [
-    {
-      id: 1,
-      title: "Llegada a Santiago",
-      description: "Primera vista de la ciudad desde el avión",
-      date: "10 Oct",
-      time: "3:22 PM",
-      location: "Aeropuerto SCL",
-      people: ["Juan", "María", "Pedro"],
-      position: { top: "20%", left: "15%" },
-    },
-    {
-      id: 2,
-      title: "Atardecer en Valparaíso",
-      description: "Los colores del cerro al atardecer son increíbles",
-      date: "12 Oct",
-      time: "7:45 PM",
-      location: "Cerro Concepción",
-      people: ["Ana", "Carlos"],
-      position: { top: "45%", left: "35%" },
-    },
-    {
-      id: 3,
-      title: "Viñedos del Valle",
-      description: "Tour de vinos en el Valle de Colchagua",
-      date: "14 Oct",
-      time: "11:00 AM",
-      location: "Valle de Colchagua",
-      people: ["Juan", "María", "Pedro", "Ana", "Carlos"],
-      position: { top: "65%", left: "60%" },
-    },
-    {
-      id: 4,
-      title: "Playa en la costa",
-      description: "Día perfecto en la playa de Viña del Mar",
-      date: "16 Oct",
-      time: "2:30 PM",
-      location: "Viña del Mar",
-      people: ["María", "Ana"],
-      position: { top: "30%", left: "75%" },
-    },
-  ];
+  useEffect(() => {
+    loadPhotos();
+  }, [tripId]);
+
+  const loadPhotos = async () => {
+    setLoading(true);
+    try {
+      const data = await getTripPhotos(tripId);
+      // Sort by creation date
+      const sorted = data.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      setPhotos(sorted);
+    } catch (error) {
+      console.error("Failed to load photos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString("es", {
+        day: "numeric",
+        month: "short",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleTimeString("es", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  // Generate wavy path between points
+  const generateWavyPath = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return "";
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const current = points[i];
+      const next = points[i + 1];
+
+      const midX = (current.x + next.x) / 2;
+      const controlY = i % 2 === 0 ? 150 : 350; // Alternate wave height
+
+      // Quadratic bezier curve for wavy effect
+      path += ` Q ${midX} ${controlY}, ${next.x} ${next.y}`;
+    }
+
+    return path;
+  };
+
+  // Calculate positions for photos along the timeline
+  const calculatePhotoPositions = () => {
+    if (photos.length === 0) return [];
+
+    const spacing = 350; // Space between photos
+    const baseY = 250; // Center Y position
+
+    return photos.map((photo, index) => ({
+      photo,
+      x: 200 + index * spacing,
+      y: baseY + (index % 2 === 0 ? -50 : 50), // Alternate up and down
+    }));
+  };
+
+  const photoPositions = calculatePhotoPositions();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">Cargando mapa de recuerdos...</span>
+      </div>
+    );
+  }
+
+  if (photos.length === 0) {
+    return (
+      <Card className="rounded-[32px] shadow-soft p-12 text-center bg-secondary/10 border-none">
+        <MapPin className="h-20 w-20 text-muted-foreground/30 mx-auto mb-4" />
+        <h3 className="text-xl font-bold mb-2">No hay fotos todavía</h3>
+        <p className="text-muted-foreground">
+          Sube fotos en la sección "Momentos" para ver tu mapa de recuerdos
+        </p>
+      </Card>
+    );
+  }
+
+  const pathPoints = photoPositions.map(p => ({ x: p.x, y: p.y }));
+  const wavyPath = generateWavyPath(pathPoints);
+  const totalWidth = Math.max(1200, photoPositions[photoPositions.length - 1]?.x + 400 || 1200);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold">Mapa de Recuerdos</h2>
-        <p className="text-muted-foreground mt-1">
-          Se genera automáticamente con las fotos que subes en "Mejores Momentos"
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-black text-foreground">Mapa de Recuerdos</h2>
+          <p className="text-muted-foreground mt-1">
+            Tu viaje en una línea de tiempo · Desplázate horizontalmente
+          </p>
+        </div>
+        {/* Compass decoration */}
+        <div className="hidden md:block">
+          <Navigation className="h-12 w-12 text-primary/30" style={{ transform: 'rotate(45deg)' }} />
+        </div>
       </div>
 
-      {/* Map Container */}
-      <Card className="rounded-3xl overflow-hidden shadow-xl border-2 border-border/50">
-        <div className="relative h-[600px]">
-          {/* Map Background */}
-          <img
-            src="/assets/map-background.png"
-            alt="Mapa del tesoro"
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Memory Markers */}
-          {memories.map((memory, index) => (
-            <div
-              key={memory.id}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2"
-              style={{ top: memory.position.top, left: memory.position.left }}
-            >
-              {/* Dotted Path (if not first) */}
-              {index > 0 && (
-                <div className="absolute w-20 h-0.5 border-t-2 border-dashed border-primary/50 -left-20 top-1/2" />
-              )}
-              
-              {/* Marker Button */}
-              <button
-                onClick={() => setSelectedMemory(selectedMemory === memory.id ? null : memory.id)}
-                className={`relative group transition-all duration-300 ${
-                  selectedMemory === memory.id ? "scale-125 z-20" : "hover:scale-110"
-                }`}
-              >
-                {/* Pulse Animation */}
-                <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
-                
-                {/* Marker Circle */}
-                <div
-                  className={`relative w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                    selectedMemory === memory.id
-                      ? "bg-primary ring-4 ring-primary/30"
-                      : "bg-card border-2 border-primary group-hover:bg-primary"
-                  }`}
+      {/* Vintage Map Container - Horizontal Scroll */}
+      <div className="relative rounded-[32px] overflow-hidden shadow-hover border-4 border-[#8B7355]/30">
+        {/* Vintage paper texture background */}
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle at 20% 50%, transparent 0%, rgba(139, 115, 85, 0.1) 100%),
+              radial-gradient(circle at 80% 20%, transparent 0%, rgba(139, 115, 85, 0.08) 100%),
+              linear-gradient(90deg, transparent, rgba(139, 115, 85, 0.05))
+            `,
+          }}
+        />
+
+        {/* Scrollable map */}
+        <div
+          ref={scrollContainerRef}
+          className="overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent"
+          style={{
+            background: 'linear-gradient(135deg, #F5E6D3 0%, #E8D4B8 50%, #F0E2CE 100%)',
+          }}
+        >
+          <svg
+            width={totalWidth}
+            height="500"
+            className="min-w-full"
+            style={{ cursor: 'grab' }}
+            onMouseDown={(e) => {
+              if (!scrollContainerRef.current) return;
+              const container = scrollContainerRef.current;
+              const startX = e.pageX - container.offsetLeft;
+              const scrollLeft = container.scrollLeft;
+
+              const handleMouseMove = (e: MouseEvent) => {
+                const x = e.pageX - container.offsetLeft;
+                const walk = (x - startX) * 2;
+                container.scrollLeft = scrollLeft - walk;
+              };
+
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          >
+            {/* Wavy path line */}
+            <path
+              d={wavyPath}
+              fill="none"
+              stroke="#8B7355"
+              strokeWidth="3"
+              strokeDasharray="10,5"
+              opacity="0.6"
+              strokeLinecap="round"
+            />
+
+            {/* Photo points on timeline */}
+            {photoPositions.map((pos, index) => (
+              <g key={pos.photo.id}>
+                {/* Vertical line to photo */}
+                <line
+                  x1={pos.x}
+                  y1={pos.y}
+                  x2={pos.x}
+                  y2={pos.y < 250 ? pos.y + 50 : pos.y - 50}
+                  stroke="#8B7355"
+                  strokeWidth="2"
+                  strokeDasharray="5,3"
+                  opacity="0.4"
+                />
+
+                {/* Photo container with vintage frame */}
+                <g
+                  className="cursor-pointer transition-transform hover:scale-110"
+                  onClick={() => setSelectedMemory(selectedMemory === pos.photo.id ? null : pos.photo.id)}
                 >
-                  <Camera
-                    className={`h-6 w-6 transition-colors ${
-                      selectedMemory === memory.id
-                        ? "text-primary-foreground"
-                        : "text-primary group-hover:text-primary-foreground"
-                    }`}
+                  {/* Vintage photo frame */}
+                  <rect
+                    x={pos.x - 60}
+                    y={pos.y < 250 ? 30 : 370}
+                    width="120"
+                    height="120"
+                    fill="#FFF"
+                    stroke="#8B7355"
+                    strokeWidth="4"
+                    rx="4"
+                    filter="drop-shadow(0 4px 8px rgba(0,0,0,0.2))"
                   />
-                </div>
 
-                {/* Badge Number */}
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-xs font-bold shadow-md">
-                  {index + 1}
-                </div>
-              </button>
+                  {/* Photo clip-path for image */}
+                  <clipPath id={`clip-${pos.photo.id}`}>
+                    <rect
+                      x={pos.x - 55}
+                      y={pos.y < 250 ? 35 : 375}
+                      width="110"
+                      height="110"
+                      rx="2"
+                    />
+                  </clipPath>
 
-              {/* Memory Card Popup */}
-              {selectedMemory === memory.id && (
-                <Card className="absolute top-16 left-1/2 transform -translate-x-1/2 w-80 p-4 shadow-2xl border-2 border-primary/20 z-30 animate-scale-in">
-                  <div className="space-y-3">
-                    <div>
-                      <h4 className="font-bold text-lg">{memory.title}</h4>
-                      <p className="text-sm text-muted-foreground">{memory.description}</p>
-                    </div>
+                  {/* Actual photo */}
+                  <image
+                    href={pos.photo.photo_url}
+                    x={pos.x - 55}
+                    y={pos.y < 250 ? 35 : 375}
+                    width="110"
+                    height="110"
+                    clipPath={`url(#clip-${pos.photo.id})`}
+                    preserveAspectRatio="xMidYMid slice"
+                  />
 
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        <span>{memory.location}</span>
-                      </div>
-                      <span>·</span>
-                      <span>
-                        {memory.date} · {memory.time}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex flex-wrap gap-1">
-                        {memory.people.map((person) => (
-                          <Badge key={person} variant="secondary" className="rounded-full text-xs">
-                            {person}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Placeholder for Photo */}
-                    <div className="bg-secondary rounded-lg h-40 flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-xs">Foto del recuerdo</p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Timeline List */}
-      <Card className="rounded-2xl shadow-card p-6">
-        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <div className="bg-primary/20 rounded-full p-2">
-            <MapPin className="h-5 w-5 text-primary" />
-          </div>
-          Línea de Tiempo
-        </h3>
-        <div className="space-y-3">
-          {memories.map((memory, index) => (
-            <button
-              key={memory.id}
-              onClick={() => setSelectedMemory(memory.id)}
-              className={`w-full text-left p-4 rounded-xl transition-all border ${
-                selectedMemory === memory.id
-                  ? "bg-primary/10 border-primary/30 shadow-md"
-                  : "bg-background border-border hover:bg-secondary/50"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                      selectedMemory === memory.id
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-muted-foreground"
-                    }`}
+                  {/* Number badge */}
+                  <circle
+                    cx={pos.x + 50}
+                    cy={pos.y < 250 ? 40 : 380}
+                    r="16"
+                    fill="#FF8750"
+                    stroke="#FFF"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x={pos.x + 50}
+                    y={pos.y < 250 ? 46 : 386}
+                    textAnchor="middle"
+                    fill="#FFF"
+                    fontSize="14"
+                    fontWeight="bold"
                   >
                     {index + 1}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold">{memory.title}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">{memory.description}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>
-                      {memory.date} · {memory.time}
-                    </span>
-                    <span>·</span>
-                    <span>{memory.location}</span>
-                  </div>
-                </div>
-              </div>
-            </button>
-          ))}
+                  </text>
+                </g>
+
+                {/* Location label */}
+                {pos.photo.location_name && (
+                  <text
+                    x={pos.x}
+                    y={pos.y < 250 ? 160 : 350}
+                    textAnchor="middle"
+                    fill="#6B5744"
+                    fontSize="13"
+                    fontWeight="600"
+                    fontFamily="Nunito, sans-serif"
+                    style={{
+                      transform: `rotate(${pos.y < 250 ? -8 : 8}deg)`,
+                      transformOrigin: `${pos.x}px ${pos.y < 250 ? 160 : 350}px`,
+                    }}
+                  >
+                    {pos.photo.location_name.length > 15
+                      ? pos.photo.location_name.slice(0, 15) + "..."
+                      : pos.photo.location_name}
+                  </text>
+                )}
+
+                {/* Date label */}
+                <text
+                  x={pos.x}
+                  y={pos.y < 250 ? 175 : 365}
+                  textAnchor="middle"
+                  fill="#8B7355"
+                  fontSize="11"
+                  fontFamily="Nunito, sans-serif"
+                  opacity="0.7"
+                >
+                  {formatDate(pos.photo.created_at)}
+                </text>
+
+                {/* Selected popup */}
+                {selectedMemory === pos.photo.id && (
+                  <g>
+                    {/* Popup background */}
+                    <rect
+                      x={pos.x - 120}
+                      y={pos.y < 250 ? 180 : 240}
+                      width="240"
+                      height="100"
+                      fill="#FFF7F0"
+                      stroke="#8B7355"
+                      strokeWidth="2"
+                      rx="8"
+                      filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))"
+                    />
+
+                    {/* Popup content */}
+                    <text
+                      x={pos.x}
+                      y={pos.y < 250 ? 205 : 265}
+                      textAnchor="middle"
+                      fill="#2F2F3A"
+                      fontSize="14"
+                      fontWeight="bold"
+                      fontFamily="Nunito, sans-serif"
+                    >
+                      {pos.photo.description?.slice(0, 25) || "Foto del viaje"}
+                    </text>
+
+                    {pos.photo.location_name && (
+                      <>
+                        <text
+                          x={pos.x - 105}
+                          y={pos.y < 250 ? 230 : 290}
+                          fill="#8B7355"
+                          fontSize="11"
+                          fontFamily="Nunito, sans-serif"
+                        >
+                          📍 {pos.photo.location_name.slice(0, 20)}
+                        </text>
+                      </>
+                    )}
+
+                    <text
+                      x={pos.x - 105}
+                      y={pos.y < 250 ? 250 : 310}
+                      fill="#8B7355"
+                      fontSize="10"
+                      fontFamily="Nunito, sans-serif"
+                      opacity="0.7"
+                    >
+                      {formatDate(pos.photo.created_at)} · {formatTime(pos.photo.created_at)}
+                    </text>
+                  </g>
+                )}
+
+                {/* Decorative icons at intervals */}
+                {index % 3 === 0 && index > 0 && (
+                  <text
+                    x={pos.x - 150}
+                    y={250}
+                    fontSize="32"
+                    opacity="0.15"
+                  >
+                    {['🗻', '🏖️', '🏛️', '🌳'][index % 4]}
+                  </text>
+                )}
+              </g>
+            ))}
+
+            {/* Start marker */}
+            <g>
+              <circle cx="100" cy="250" r="30" fill="#6EBF4E" opacity="0.2" />
+              <circle cx="100" cy="250" r="20" fill="#6EBF4E" stroke="#FFF" strokeWidth="3" />
+              <text x="100" y="257" textAnchor="middle" fill="#FFF" fontSize="20" fontWeight="bold">🏁</text>
+            </g>
+
+            {/* End marker */}
+            <g>
+              <circle
+                cx={photoPositions[photoPositions.length - 1]?.x + 100 || 300}
+                cy="250"
+                r="30"
+                fill="#FF8750"
+                opacity="0.2"
+              />
+              <circle
+                cx={photoPositions[photoPositions.length - 1]?.x + 100 || 300}
+                cy="250"
+                r="20"
+                fill="#FF8750"
+                stroke="#FFF"
+                strokeWidth="3"
+              />
+              <text
+                x={photoPositions[photoPositions.length - 1]?.x + 100 || 300}
+                y="257"
+                textAnchor="middle"
+                fill="#FFF"
+                fontSize="20"
+                fontWeight="bold"
+              >
+                ⭐
+              </text>
+            </g>
+          </svg>
         </div>
-      </Card>
+
+        {/* Vintage border overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none rounded-[32px]"
+          style={{
+            boxShadow: 'inset 0 0 40px rgba(139, 115, 85, 0.2)',
+          }}
+        />
+      </div>
+
+      {/* Info hint */}
+      <div className="text-center text-sm text-muted-foreground">
+        💡 Arrastra horizontalmente o usa el scroll para navegar por tu línea de tiempo
+      </div>
     </div>
   );
 };

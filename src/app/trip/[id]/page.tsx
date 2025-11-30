@@ -2,13 +2,15 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Wallet, Map, Camera, Share2, Settings } from "lucide-react";
+import { ArrowLeft, Wallet, Map, Camera, Share2, MapPin, Plus } from "lucide-react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import TripExpenses from "@/components/TripExpenses";
 import TripMemoryMap from "@/components/TripMemoryMap";
 import TripMoments from "@/components/TripMoments";
+import { getTripById } from "@/lib/api/sessions";
+import { useAuth } from "@/contexts/AuthContext";
 
 type TripSection = "expenses" | "map" | "moments";
 
@@ -16,8 +18,34 @@ export default function TripView() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const { session } = useAuth();
   const id = params.id as string;
   const [activeSection, setActiveSection] = useState<TripSection>("expenses");
+  const [tripExists, setTripExists] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check if trip exists
+  useEffect(() => {
+    const checkTrip = async () => {
+      if (!session?.access_token) {
+        setLoading(false);
+        setTripExists(false);
+        return;
+      }
+
+      try {
+        const trip = await getTripById(parseInt(id), session.access_token);
+        setTripExists(trip !== null);
+      } catch (error) {
+        console.error("Error checking trip:", error);
+        setTripExists(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkTrip();
+  }, [id, session]);
 
   // Set initial section from URL params
   useEffect(() => {
@@ -64,6 +92,64 @@ export default function TripView() {
       description: "Fotos del viaje",
     },
   ];
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="pt-16 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando viaje...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show trip not found message
+  if (tripExists === false) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="pt-16">
+          <div className="container mx-auto px-4 max-w-2xl">
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <Card className="rounded-[32px] shadow-soft p-12 text-center bg-secondary/10 border-none w-full">
+                <MapPin className="h-20 w-20 text-primary/30 mx-auto mb-6" />
+                <h1 className="text-3xl font-black mb-4">Viaje no encontrado</h1>
+                <p className="text-muted-foreground mb-8 text-lg">
+                  Este viaje no existe o no tienes acceso a él.
+                  <br />
+                  Crea un nuevo viaje para empezar tu aventura.
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => router.push("/dashboard")}
+                    className="rounded-full shadow-soft"
+                  >
+                    <ArrowLeft className="h-5 w-5 mr-2" />
+                    Volver al Dashboard
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={() => router.push("/create-session")}
+                    className="rounded-full shadow-soft"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Crear Viaje
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -149,7 +235,7 @@ export default function TripView() {
         <main className="px-4 container mx-auto max-w-7xl pb-12">
           <div className="animate-in fade-in duration-300">
             {activeSection === "expenses" && <TripExpenses />}
-            {activeSection === "map" && <TripMemoryMap />}
+            {activeSection === "map" && <TripMemoryMap tripId={parseInt(id)} />}
             {activeSection === "moments" && <TripMoments tripId={parseInt(id)} />}
           </div>
         </main>

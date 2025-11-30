@@ -1332,6 +1332,130 @@ async def get_trip_photos(trip_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/trips/{trip_id}/photos")
+async def upload_photos(trip_id: int, request: Request):
+    """
+    Upload one or more photos to a trip.
+
+    Accepts multipart/form-data with:
+    - photos: one or more image files
+    - milestone_id (optional): milestone to associate photos with
+    - description (optional): description for all photos
+
+    Returns:
+        {
+            "success": true,
+            "photos": [...]
+        }
+    """
+    from services import get_db
+
+    # Get trip first
+    trip = await session_service.get_trip_by_id(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Check if user has access to this trip
+    user = await get_auth_user(request)
+    if user:
+        # Allow if user is creator or participant
+        is_creator = trip["creator_id"] == user.id
+        is_participant = await session_service.is_participant(trip_id, user.id)
+
+        if not is_creator and not is_participant:
+            raise HTTPException(status_code=403, detail="Not authorized to upload photos to this trip")
+
+        user_id = user.id
+    else:
+        # For now, allow anonymous uploads (could add token check later)
+        user_id = None
+
+    try:
+        form = await request.form()
+
+        # Get optional parameters
+        milestone_id = form.get("milestone_id")
+        if milestone_id:
+            milestone_id = int(milestone_id)
+
+        description = form.get("description")
+
+        # Get all uploaded files (supporting multiple)
+        uploaded_photos = []
+        photo_files = form.getlist("photos")  # Get list of files
+
+        if not photo_files or len(photo_files) == 0:
+            # Fallback to single file field
+            single_photo = form.get("photo")
+            if single_photo:
+                photo_files = [single_photo]
+
+        if not photo_files or len(photo_files) == 0:
+            raise HTTPException(status_code=400, detail="No photos provided")
+
+        storage = get_storage()
+        db = get_db()
+
+        session_code = trip["session_code"]
+
+        for idx, photo_file in enumerate(photo_files):
+            # Read file content
+            photo_content = await photo_file.read()
+
+            # Convert to base64
+            import base64
+            photo_base64 = base64.b64encode(photo_content).decode('utf-8')
+
+            # Detect mime type
+            mime_type = photo_file.content_type or "image/jpeg"
+            photo_data_url = f"data:{mime_type};base64,{photo_base64}"
+
+            # Upload to storage
+            upload_result = await storage.upload(photo_data_url, session_code)
+
+            if not upload_result.success:
+                print(f"⚠️ Failed to upload photo {idx + 1}: {upload_result.error}")
+                continue
+
+            # Insert into database
+            photo_record = await db.insert_photo(
+                trip_id=trip_id,
+                milestone_id=milestone_id,
+                photo_url=upload_result.url,
+                storage_path=upload_result.path,
+                uploaded_by_user_id=user_id,
+                description=description,
+                order_index=idx
+            )
+
+            if photo_record:
+                uploaded_photos.append({
+                    "id": photo_record.id,
+                    "trip_id": photo_record.trip_id,
+                    "milestone_id": photo_record.milestone_id,
+                    "photo_url": photo_record.photo_url,
+                    "description": photo_record.description,
+                    "created_at": photo_record.created_at
+                })
+
+        if len(uploaded_photos) == 0:
+            raise HTTPException(status_code=500, detail="Failed to upload any photos")
+
+        return {
+            "success": True,
+            "photos": uploaded_photos,
+            "count": len(uploaded_photos)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error uploading photos: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============== TEST HTML PAGE ==============
 
 @app.get("/test", response_class=HTMLResponse)
