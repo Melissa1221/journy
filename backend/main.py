@@ -53,9 +53,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Initialize async graph with PostgreSQL checkpointer on startup."""
-    print("🚀 Initializing async graph with PostgreSQL...")
-    await get_graph()
-    print("✅ Graph initialized successfully")
+    try:
+        print("🚀 Initializing async graph with PostgreSQL...")
+        await get_graph()
+        print("✅ Graph initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Warning: Failed to initialize graph: {e}")
+        print("⚠️ Server will continue without graph initialization")
+        print("⚠️ Some features may not work until connection is restored")
 
 
 # ============== MODELS ==============
