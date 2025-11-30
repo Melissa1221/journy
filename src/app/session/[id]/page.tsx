@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Share2, Settings, Plus, TrendingUp, MessageSquare, Wifi, WifiOff, Users } from "lucide-react";
+import { Share2, Settings, Plus, TrendingUp, MessageSquare, Wifi, WifiOff, Users, Wallet } from "lucide-react";
 import Header from "@/components/Header";
 import ShareSessionDialog from "@/components/ShareSessionDialog";
 import { ChatConversation } from "@/components/chat/ChatConversation";
@@ -73,6 +73,22 @@ export default function Session() {
 
   // Flatten debts from multi-currency format
   const allDebts = Object.values(sessionState.debts).flat();
+
+  // Calculate spending per person from sessionState expenses
+  const spendingPerPerson = sessionState.expenses.reduce((acc, expense) => {
+    if (!acc[expense.paid_by]) {
+      acc[expense.paid_by] = 0;
+    }
+    acc[expense.paid_by] += expense.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalSpent = sessionState.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const spendingData = Object.entries(spendingPerPerson).map(([person, amount]) => ({
+    person,
+    amount,
+    percentage: totalSpent > 0 ? (amount / totalSpent * 100).toFixed(1) : "0"
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -209,6 +225,54 @@ export default function Session() {
                 )}
               </ScrollArea>
             </Card>
+
+            {/* Individual Spending Tracker */}
+            {spendingData.length > 0 && (
+              <Card className="rounded-3xl shadow-card p-6 border-2 border-border/50">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Wallet className="h-6 w-6 text-primary" />
+                    Gasto por Persona
+                  </h2>
+                  <Badge variant="outline" className="text-sm font-semibold">
+                    Total: {totalSpent.toFixed(2)}
+                  </Badge>
+                </div>
+
+                <div className="space-y-3">
+                  {spendingData.map((data, idx) => (
+                    <div key={idx} className="bg-background rounded-2xl p-4 border border-border hover:shadow-card hover:border-primary/20 transition-all duration-300">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback
+                              style={{ backgroundColor: getAvatarColor(data.person) }}
+                              className="text-white font-bold"
+                            >
+                              {data.person[0]?.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-semibold text-foreground">{data.person}</p>
+                            <p className="text-xs text-muted-foreground">{data.percentage}% del total</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-2xl text-primary">{data.amount.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-primary to-accent h-full rounded-full transition-all duration-500"
+                          style={{ width: `${data.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Debts Summary */}
             <Card className="rounded-3xl shadow-card p-6 bg-gradient-to-br from-card via-secondary/30 to-background border-2 border-border/50">

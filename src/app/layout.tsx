@@ -10,7 +10,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "TripSplit - Viaja libre, disfruta cada momento",
+  title: "Journi - Viaja libre, disfruta cada momento",
   description: "Tu compañero perfecto de viaje. Gastos claros, recuerdos para siempre.",
 };
 
