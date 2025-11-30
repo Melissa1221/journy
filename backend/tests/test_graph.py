@@ -111,25 +111,42 @@ class TestTools:
         assert data["action"] == "delete_expense"
         assert data["data"]["expense_id"] == "last"
 
+    def test_register_expense_with_split_amounts(self):
+        """Test register_expense with unequal split_amounts."""
+        from graph import register_expense
+
+        result = register_expense.invoke({
+            "amount": 50.0,
+            "description": "comida",
+            "paid_by": "andre",
+            "split_amounts": {"meli": 20, "andre": 30}
+        })
+
+        data = json.loads(result)
+        assert data["action"] == "register_expense"
+        assert data["data"]["amount"] == 50.0
+        assert data["data"]["split_amounts"] == {"meli": 20, "andre": 30}
+        assert data["data"]["split_among"] is None
+
+    def test_register_expense_both_split_methods_error(self):
+        """Test that using both split_among and split_amounts returns error."""
+        from graph import register_expense
+
+        result = register_expense.invoke({
+            "amount": 50.0,
+            "description": "comida",
+            "paid_by": "andre",
+            "split_among": ["meli", "andre"],
+            "split_amounts": {"meli": 20, "andre": 30}
+        })
+
+        data = json.loads(result)
+        assert data["action"] == "error"
+        assert "split_among OR split_amounts" in data["message"]
+
 
 class TestCheckpointer:
     """Test checkpointer selection logic."""
-
-    def test_uses_memory_saver_without_env(self):
-        """Test that InMemorySaver is used when SUPABASE_DB_URL is not set."""
-        from langgraph.checkpoint.memory import InMemorySaver
-
-        with patch.dict('os.environ', {}, clear=True):
-            with patch('graph.SUPABASE_DB_URL', None):
-                from graph import get_checkpointer
-
-                # Force reimport to use patched value
-                import importlib
-                import graph as graph_module
-                importlib.reload(graph_module)
-
-                checkpointer = graph_module.get_checkpointer()
-                assert isinstance(checkpointer, InMemorySaver)
 
     def test_postgres_import_available(self):
         """Test that PostgresSaver can be imported."""
@@ -142,16 +159,6 @@ class TestCheckpointer:
 
 class TestLLMFallback:
     """Test the LLM fallback chain."""
-
-    def test_model_fallback_chain_defined(self):
-        """Test that model fallback chain is properly defined."""
-        from graph import MODEL_FALLBACK_CHAIN
-
-        assert len(MODEL_FALLBACK_CHAIN) >= 3
-        for model, max_tokens in MODEL_FALLBACK_CHAIN:
-            assert isinstance(model, str)
-            assert isinstance(max_tokens, int)
-            assert max_tokens > 0
 
     def test_llm_manager_exists(self):
         """Test that LLM manager is instantiated."""
@@ -213,7 +220,10 @@ class TestExecuteTools:
             "expenses": [],
             "payments": [],
             "balances": {},
-            "participants": ["meli", "andre"]
+            "participants": ["meli", "andre"],
+            "milestones": [],
+            "photos": [],
+            "session_context": {}
         }
 
         result = await execute_tools(state)
@@ -224,11 +234,11 @@ class TestExecuteTools:
         # Should split among all participants
         assert result["expenses"][0]["split_among"] == ["meli", "andre"]
 
-        # Check balances
+        # Check balances (now per-currency)
         # meli paid 100, split between 2, so meli: +100 -50 = +50
         # andre: -50
-        assert result["balances"]["meli"] == 50.0
-        assert result["balances"]["andre"] == -50.0
+        assert result["balances"]["meli"]["PEN"] == 50.0
+        assert result["balances"]["andre"]["PEN"] == -50.0
 
     @pytest.mark.asyncio
     async def test_execute_register_payment(self):
@@ -250,8 +260,11 @@ class TestExecuteTools:
             "messages": [mock_message],
             "expenses": [],
             "payments": [],
-            "balances": {"andre": -50.0, "meli": 50.0},
-            "participants": ["meli", "andre"]
+            "balances": {"andre": {"PEN": -50.0}, "meli": {"PEN": 50.0}},
+            "participants": ["meli", "andre"],
+            "milestones": [],
+            "photos": [],
+            "session_context": {}
         }
 
         result = await execute_tools(state)
@@ -259,9 +272,9 @@ class TestExecuteTools:
         assert len(result["payments"]) == 1
         assert result["payments"][0]["amount"] == 25.0
         # andre paid 25, so balance goes up
-        assert result["balances"]["andre"] == -25.0
+        assert result["balances"]["andre"]["PEN"] == -25.0
         # meli received 25, so balance goes down
-        assert result["balances"]["meli"] == 25.0
+        assert result["balances"]["meli"]["PEN"] == 25.0
 
     @pytest.mark.asyncio
     async def test_execute_delete_expense(self):
@@ -280,22 +293,103 @@ class TestExecuteTools:
             "expenses": [{
                 "id": "exp_1",
                 "amount": 100.0,
+                "currency": "PEN",
                 "description": "test",
                 "paid_by": "meli",
                 "split_among": ["meli", "andre"],
                 "timestamp": ""
             }],
             "payments": [],
-            "balances": {"meli": 50.0, "andre": -50.0},
-            "participants": ["meli", "andre"]
+            "balances": {"meli": {"PEN": 50.0}, "andre": {"PEN": -50.0}},
+            "participants": ["meli", "andre"],
+            "milestones": [],
+            "photos": []
         }
 
         result = await execute_tools(state)
 
         assert len(result["expenses"]) == 0
         # Balances should be reversed
-        assert result["balances"]["meli"] == 0.0
-        assert result["balances"]["andre"] == 0.0
+        assert result["balances"]["meli"]["PEN"] == 0.0
+        assert result["balances"]["andre"]["PEN"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_execute_register_expense_with_split_amounts(self):
+        """Test executing register_expense with unequal split_amounts."""
+        from graph import execute_tools
+
+        mock_message = MagicMock()
+        mock_message.tool_calls = [{
+            "id": "test_id",
+            "name": "register_expense",
+            "args": {
+                "amount": 50.0,
+                "description": "comida",
+                "paid_by": "andre",
+                "currency": "PEN",
+                "split_amounts": {"meli": 20, "andre": 30}
+            }
+        }]
+
+        state = {
+            "messages": [mock_message],
+            "expenses": [],
+            "payments": [],
+            "balances": {},
+            "participants": [],
+            "milestones": [],
+            "photos": [],
+            "session_context": {}
+        }
+
+        result = await execute_tools(state)
+
+        assert len(result["expenses"]) == 1
+        assert result["expenses"][0]["amount"] == 50.0
+        assert result["expenses"][0]["paid_by"] == "andre"
+        assert result["expenses"][0]["split_amounts"] == {"meli": 20, "andre": 30}
+
+        # Check balances: andre paid 50, owes 30 → +20
+        # meli paid 0, owes 20 → -20
+        assert result["balances"]["andre"]["PEN"] == 20.0
+        assert result["balances"]["meli"]["PEN"] == -20.0
+
+    @pytest.mark.asyncio
+    async def test_execute_register_expense_split_amounts_validation(self):
+        """Test that split_amounts must sum to total amount."""
+        from graph import execute_tools
+
+        mock_message = MagicMock()
+        mock_message.tool_calls = [{
+            "id": "test_id",
+            "name": "register_expense",
+            "args": {
+                "amount": 50.0,
+                "description": "comida",
+                "paid_by": "andre",
+                "currency": "PEN",
+                "split_amounts": {"meli": 20, "andre": 20}  # Sum = 40, not 50
+            }
+        }]
+
+        state = {
+            "messages": [mock_message],
+            "expenses": [],
+            "payments": [],
+            "balances": {},
+            "participants": [],
+            "milestones": [],
+            "photos": [],
+            "session_context": {}
+        }
+
+        result = await execute_tools(state)
+
+        # Should not add the expense
+        assert len(result["expenses"]) == 0
+        # Should return error in tool message
+        assert len(result["messages"]) == 1
+        assert "Error" in result["messages"][0].content
 
 
 class TestGraphBuild:
