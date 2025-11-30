@@ -86,6 +86,47 @@ interface UseJourniChatReturn {
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
+// Fetch session history from backend
+async function fetchSessionHistory(sessionId: string): Promise<{
+  messages: ChatMessage[];
+  state: SessionState;
+} | null> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/history`);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    // Convert backend messages to frontend format
+    const messages: ChatMessage[] = data.messages.map((msg: {
+      type: string;
+      user_id?: string;
+      content: string;
+      timestamp: string;
+    }, idx: number) => ({
+      id: `history_${idx}_${Date.now()}`,
+      type: msg.type as "user" | "bot",
+      content: msg.content,
+      userId: msg.user_id,
+      timestamp: msg.timestamp,
+    }));
+
+    return {
+      messages,
+      state: {
+        expenses: data.state.expenses || [],
+        payments: data.state.payments || [],
+        balances: data.state.balances || {},
+        participants: data.state.participants || [],
+        debts: data.state.debts || {},
+      },
+    };
+  } catch (err) {
+    console.error("[History] Failed to fetch:", err);
+    return null;
+  }
+}
+
 export function useJourniChat({
   sessionId,
   userId,
@@ -104,11 +145,12 @@ export function useJourniChat({
     debts: {},
   });
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log("[WS] Already connected, skipping");
       return;
@@ -120,6 +162,18 @@ export function useJourniChat({
     }
 
     setStatus("connecting");
+
+    // Load history before connecting (only once per session)
+    if (!historyLoaded) {
+      console.log("[History] Loading session history...");
+      const history = await fetchSessionHistory(sessionId);
+      if (history) {
+        console.log(`[History] Loaded ${history.messages.length} messages`);
+        setMessages(history.messages);
+        setSessionState(history.state);
+        setHistoryLoaded(true);
+      }
+    }
 
     const wsUrl = BACKEND_URL.replace(/^http/, "ws");
     // Encode userId to handle spaces and special characters in names
@@ -157,7 +211,7 @@ export function useJourniChat({
       setStatus("disconnected");
       wsRef.current = null;
     };
-  }, [sessionId, userId, onError]);
+  }, [sessionId, userId, onError, historyLoaded]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

@@ -424,6 +424,96 @@ async def get_session(thread_id: str):
         }
 
 
+@app.get("/api/sessions/{thread_id}/history")
+async def get_session_history(thread_id: str):
+    """
+    Get chat history for a session.
+
+    Returns messages in a format ready for the frontend:
+    - user messages with user_id
+    - bot messages with content
+    - Filters out system messages and tool messages
+    """
+    graph = await get_graph()
+    config = {"configurable": {"thread_id": thread_id}}
+
+    try:
+        state = await graph.aget_state(config)
+        raw_messages = state.values.get("messages", [])
+
+        # Convert LangGraph messages to frontend format
+        history = []
+        for msg in raw_messages:
+            msg_type = getattr(msg, 'type', None)
+
+            # Skip tool messages and system messages
+            if msg_type in ('tool', 'system'):
+                continue
+
+            content = extract_text_content(getattr(msg, 'content', ''))
+
+            # Filter out empty or JSON-only content
+            if not content or is_tool_related_content(content):
+                continue
+
+            filtered_content = filter_json_from_response(content, strip=True)
+            if not filtered_content:
+                continue
+
+            if msg_type == 'human':
+                # Parse user_id from message format "[user_id]: content"
+                user_id = "Usuario"
+                actual_content = filtered_content
+                if filtered_content.startswith('[') and ']: ' in filtered_content:
+                    parts = filtered_content.split(']: ', 1)
+                    user_id = parts[0][1:]  # Remove leading [
+                    actual_content = parts[1] if len(parts) > 1 else filtered_content
+
+                history.append({
+                    "type": "user",
+                    "user_id": user_id,
+                    "content": actual_content,
+                    "timestamp": datetime.now().isoformat()  # LangGraph doesn't store timestamps
+                })
+            elif msg_type in ('ai', 'AIMessageChunk'):
+                history.append({
+                    "type": "bot",
+                    "content": filtered_content,
+                    "timestamp": datetime.now().isoformat()
+                })
+
+        # Also return current state for UI
+        balances = state.values.get("balances", {})
+        return {
+            "thread_id": thread_id,
+            "messages": history,
+            "state": {
+                "expenses": state.values.get("expenses", []),
+                "payments": state.values.get("payments", []),
+                "balances": balances,
+                "participants": state.values.get("participants", []),
+                "debts": calculate_debts(balances),
+                "milestones": state.values.get("milestones", []),
+                "photos": state.values.get("photos", [])
+            }
+        }
+    except Exception as e:
+        print(f"Error getting history for {thread_id}: {e}")
+        return {
+            "thread_id": thread_id,
+            "messages": [],
+            "state": {
+                "expenses": [],
+                "payments": [],
+                "balances": {},
+                "participants": [],
+                "debts": {},
+                "milestones": [],
+                "photos": []
+            }
+        }
+
+
 # ============== TRIP API ENDPOINTS ==============
 
 # Auth helper function
